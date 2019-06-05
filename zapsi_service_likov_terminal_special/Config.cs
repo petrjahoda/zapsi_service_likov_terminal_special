@@ -1,4 +1,4 @@
-namespace terminalServerCore {
+namespace zapsi_service_likov_terminal_special {
     public class Config {
         public string Ipaddress { get; set; }
         public string Database { get; set; }
@@ -32,7 +32,7 @@ namespace terminalServerCore {
             SmtpClient = "smtp.forpsi.com";
             SmtpPort = "25";
             SmtpUsername = "support@zapsi.eu";
-            SmtpPassword = "support01..";
+            SmtpPassword = "Zps05.....";
             AddCyclesToOrder = "0";
         }
 

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using MySql.Data.MySqlClient;
 using static System.Console;
 
-namespace terminalServerCore {
+namespace zapsi_service_likov_terminal_special {
     public enum StateType {
         Idle,
         Running,
