@@ -151,7 +151,18 @@ namespace zapsi_service_likov_terminal_special {
                     workplace.AddFailPort(logger);
                     workplace.ActualWorkshiftId = workplace.GetActualWorkShiftIdFor(logger);
                     workplace.UpdateActualStateForWorkplace(logger);
-                    // TODO add logic
+                    // TODO add logicKontrola rezimu (ukonceni terminalinputoder==3 a zapoceti terminalinputorder==1)
+//                    • kontroluju kazdych 10 vterin, jestli ma pracoviste otevrenou zakazku s rezimem == 3
+//                    o pokud ano a je to AL+LEP, kontroluju, jestli v tech 10 vterinach dosel signal 1
+//                         pokud ano, ukoncim otevrenou zakazku a zacnu novou, ktera me rezim=1
+//                    o pokud ano a je to PL
+//                         pokud ano a neni aktualne uz vic jak 10 minut produkce, nedelam nic
+//                         pokud ano a je dele jak 10 minut produkce, ukoncim otevrenou zakazku a zacnu novou, ktera me rezim=1
+//
+//                    Ukonceni zakazky pred koncem smenu
+//                        • je 15 minut do konce smeny?
+//                        o Ano a je zakazka, ktera ma start drive jak pred tema 15 minutama?
+//                         Ukonci zakazku
                     var sleepTime = Convert.ToDouble(_downloadEvery);
                     var waitTime = sleepTime - timer.ElapsedMilliseconds;
                     if ((waitTime) > 0) {
