@@ -151,18 +151,22 @@ namespace zapsi_service_likov_terminal_special {
                     workplace.AddFailPort(logger);
                     workplace.ActualWorkshiftId = workplace.GetActualWorkShiftIdFor(logger);
                     workplace.UpdateActualStateForWorkplace(logger);
-                    // TODO add logicKontrola rezimu (ukonceni terminalinputoder==3 a zapoceti terminalinputorder==1)
-//                    • kontroluju kazdych 10 vterin, jestli ma pracoviste otevrenou zakazku s rezimem == 3
-//                    o pokud ano a je to AL+LEP, kontroluju, jestli v tech 10 vterinach dosel signal 1
-//                         pokud ano, ukoncim otevrenou zakazku a zacnu novou, ktera me rezim=1
-//                    o pokud ano a je to PL
-//                         pokud ano a neni aktualne uz vic jak 10 minut produkce, nedelam nic
-//                         pokud ano a je dele jak 10 minut produkce, ukoncim otevrenou zakazku a zacnu novou, ktera me rezim=1
-//
-//                    Ukonceni zakazky pred koncem smenu
-//                        • je 15 minut do konce smeny?
-//                        o Ano a je zakazka, ktera ma start drive jak pred tema 15 minutama?
-//                         Ukonci zakazku
+                    if (workplace.OpenOrderState(logger) == 3) {
+                        if (workplace.WorkplaceGroupId == 1) {
+                            if (workplace.HasSignalInOneInLastTenSeconds(logger)) {
+                                workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
+                            }
+                        } else if (workplace.WorkplaceGroupId == 2) {
+                            if (workplace.IsInProductionForMoreThanTenMinutes(logger)) {
+                                workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
+                            }
+                        }
+                    }
+                    if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger)) {
+                        if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
+                            workplace.CloseOrderForWorkplace(DateTime.Now, logger);
+                        }
+                    }
                     var sleepTime = Convert.ToDouble(_downloadEvery);
                     var waitTime = sleepTime - timer.ElapsedMilliseconds;
                     if ((waitTime) > 0) {
@@ -196,7 +200,8 @@ namespace zapsi_service_likov_terminal_special {
                                 Oid = Convert.ToInt32(reader["OID"]),
                                 Name = Convert.ToString(reader["Name"]),
                                 DeviceOid = Convert.ToInt32(reader["DeviceID"]),
-                                WorkplaceDivisionId = Convert.ToInt32(reader["WorkplaceDivisionID"])
+                                WorkplaceDivisionId = Convert.ToInt32(reader["WorkplaceDivisionID"]),
+                                WorkplaceGroupId = Convert.ToInt32(reader["WorkplaceGroupID"])
                             };
                             workplaces.Add(workplace);
                         }
@@ -229,7 +234,8 @@ namespace zapsi_service_likov_terminal_special {
                                 Oid = Convert.ToInt32(reader["OID"]),
                                 Name = Convert.ToString(reader["Name"]),
                                 DeviceOid = Convert.ToInt32(reader["DeviceID"]),
-                                WorkplaceDivisionId = Convert.ToInt32(reader["WorkplaceDivisionID"])
+                                WorkplaceDivisionId = Convert.ToInt32(reader["WorkplaceDivisionID"]),
+                                WorkplaceGroupId = Convert.ToInt32(reader["WorkplaceGroupID"])
                             };
                             workplaces.Add(workplace);
                         }

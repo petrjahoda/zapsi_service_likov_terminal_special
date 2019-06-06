@@ -18,9 +18,11 @@ namespace zapsi_service_likov_terminal_special {
         public int ActualWorkshiftId { get; set; }
         public int PreviousWorkshiftId { get; set; }
         public DateTime LastStateDateTime { get; set; }
+        public DateTime ShiftEndsAt { get; set; }
         public int DefaultOrder { get; set; }
         public int DefaultProduct { get; set; }
         public int WorkplaceDivisionId { get; set; }
+        public int WorkplaceGroupId { get; set; }
         public int ProductionPortOid { get; set; }
         public int CountPortOid { get; set; }
         public int NokPortOid { get; set; }
@@ -1564,23 +1566,22 @@ namespace zapsi_service_likov_terminal_special {
         }
 
 
-        public void CloseAndStartOrderForWorkplaceAt(DateTime workshiftStartsAt, ILogger logger) {
-            var workplaceModeId = GetWorkplaceModeId(logger);
+        public void CloseAndStartOrderForWorkplaceAt(DateTime closeAndStartOrderDateTime, ILogger logger) {
             var orderId = GetOrderId(logger);
             var userId = OrderUserId;
             var anyOrderisOpen = orderId != 0;
             if (anyOrderisOpen) {
-                CloseOrderForWorkplace(workshiftStartsAt, logger);
-                CreateOrderForWorkplace(workshiftStartsAt, orderId, userId, workplaceModeId, logger);
+                CloseOrderForWorkplace(closeAndStartOrderDateTime, logger);
+                CreateOrderForWorkplace(closeAndStartOrderDateTime, orderId, userId, 1, logger);
             }
         }
 
-        private void CreateOrderForWorkplace(DateTime workshiftStartsAt, int orderId, int? userId, int workplaceModeId, ILogger logger) {
+        private void CreateOrderForWorkplace(DateTime startDateForOrder, int orderId, int? userId, int workplaceModeId, ILogger logger) {
             var userToInsert = "NULL";
             if (userId != null) {
                 userToInsert = userId.ToString();
             }
-            var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", workshiftStartsAt);
+            var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", startDateForOrder);
             if (Program.DatabaseType.Equals("mysql")) {
                 var connection = new MySqlConnection(
                     $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
@@ -1761,6 +1762,190 @@ namespace zapsi_service_likov_terminal_special {
             }
 
             return actualIdleId;
+        }
+
+        public int OpenOrderState(ILogger logger) {
+            var workplaceModeId = 1;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DTE is NULL and DeviceID={DeviceOid}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        workplaceModeId = Convert.ToInt32(reader["WorkplaceModeID"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+            return workplaceModeId;
+        }
+
+        public bool HasSignalInOneInLastTenSeconds(ILogger logger) {
+            bool workplaceHasSignalInOneInLasttenSeconds = false;
+            var lastValueDateTime = DateTime.Now;
+            var lastValue = 0;
+            var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.device_input_digital where deviceportID={ProductionPortOid} order by DT desc limit 1";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        lastValue = Convert.ToInt32(reader["Data"]);
+                        lastValueDateTime = Convert.ToDateTime(reader["DT"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            if (lastValue == 1) {
+                if ((DateTime.Now - lastValueDateTime).TotalSeconds < 10) {
+                    workplaceHasSignalInOneInLasttenSeconds = true;
+                }
+            }
+
+            return workplaceHasSignalInOneInLasttenSeconds;
+        }
+
+        public bool IsInProductionForMoreThanTenMinutes(ILogger logger) {
+            bool workplaceIsInProduction = false;
+            var stateId = 1;
+            var stateDateTimeStart = DateTime.Now;
+            var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTE is null";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        stateId = Convert.ToInt32(reader["StateID"]);
+                        stateDateTimeStart = Convert.ToDateTime(reader["DTS"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+            if (stateId == 1) {
+                if ((DateTime.Now - stateDateTimeStart).TotalMinutes > 10) {
+                    workplaceIsInProduction = true;
+                }
+            }
+            return workplaceIsInProduction;
+        }
+
+
+        public bool TimeIsFifteenMinutesBeforeShiftCloses(ILogger logger) {
+            var timeIsFifteenMinutesBeforeShiftCloses = false;
+            var shiftEndsAtDateTime = DateTime.Now;
+            var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.workshift where Active=1 and WorkplaceDivisionID is null or WorkplaceDivisionID ={WorkplaceDivisionId}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    while (reader.Read()) {
+                        var shiftStartsAt = reader["WorkshiftEnd"].ToString();
+                        shiftEndsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture);
+                        if (Program.TimezoneIsUtc) {
+                            shiftEndsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture).ToUniversalTime();
+                        }
+                        ShiftEndsAt = shiftEndsAtDateTime;
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem getting actual workshift: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+            if ((shiftEndsAtDateTime - DateTime.Now).TotalMinutes < 15) {
+                timeIsFifteenMinutesBeforeShiftCloses = true;
+            }
+            return timeIsFifteenMinutesBeforeShiftCloses;
+        }
+
+        public bool HasOpenOrderWithStartBeforeThoseFifteenMinutes(ILogger logger) {
+            var workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = false;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DTE is NULL and DeviceID={DeviceOid}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        OrderStartDate = Convert.ToDateTime(reader["DTS"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+            if ((ShiftEndsAt - OrderStartDate).TotalMinutes > 15) {
+                workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = true;
+            }
+
+            return workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd;
         }
     }
 }
