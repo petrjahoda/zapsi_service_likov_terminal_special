@@ -77,6 +77,7 @@ namespace zapsi_service_likov_terminal_special {
         }
 
         private static void RunWorkplaces(ILogger logger) {
+            _systemIsActivated = true;
             CheckDatabaseConnection(logger);
             DeleteOldLogFiles(logger);
             if (_databaseIsOnline) {
@@ -125,7 +126,7 @@ namespace zapsi_service_likov_terminal_special {
 
                     _swConfigCreated = true;
                 }
-                CheckSystemActivation(logger);
+//                CheckSystemActivation(logger);
                 UpdateSmtpSettings(logger);
             }
             if (_databaseIsOnline && _numberOfRunningWorkplaces == 0 && _systemIsActivated) {
@@ -145,19 +146,20 @@ namespace zapsi_service_likov_terminal_special {
                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Started running", logger);
                 var timer = Stopwatch.StartNew();
                 while (_databaseIsOnline && _loopCanRun && _systemIsActivated) {
-                    LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Inside loop started for " + workplace.Name, logger);
-                    workplace.AddProductionPort(logger);
-                    workplace.AddCountPort(logger);
-                    workplace.AddFailPort(logger);
-                    workplace.ActualWorkshiftId = workplace.GetActualWorkShiftIdFor(logger);
-                    workplace.UpdateActualStateForWorkplace(logger);
+                    LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Inside loop started", logger);
+                    UpdateWorkplace(workplace, logger);
                     if (workplace.OpenOrderState(logger) == 3) {
+                        LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Open order has mode 3", logger);
                         if (workplace.WorkplaceGroupId == 1) {
+                            LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceGroup is 1", logger);
                             if (workplace.HasSignalInOneInLastTenSeconds(logger)) {
+                                LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Has signal in 1 in last 10 seconds", logger);
                                 workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
                             }
                         } else if (workplace.WorkplaceGroupId == 2) {
+                            LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceGroup is 2", logger);
                             if (workplace.IsInProductionForMoreThanTenMinutes(logger)) {
+                                LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production for more than 10 minutes", logger);
                                 workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
                             }
                         }
@@ -183,6 +185,14 @@ namespace zapsi_service_likov_terminal_special {
                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Process ended.", logger);
                 _numberOfRunningWorkplaces--;
             }
+        }
+
+        private static void UpdateWorkplace(Workplace workplace, ILogger logger) {
+            workplace.AddProductionPort(logger);
+            workplace.AddCountPort(logger);
+            workplace.AddFailPort(logger);
+            workplace.ActualWorkshiftId = workplace.GetActualWorkShiftIdFor(logger);
+            workplace.UpdateActualStateForWorkplace(logger);
         }
 
         private static List<Workplace> GetListOfWorkplacesFromDatabase(ILogger logger) {
@@ -225,7 +235,7 @@ namespace zapsi_service_likov_terminal_special {
 
                 try {
                     connection.Open();
-                    const string selectQuery = "SELECT * from dbo.workplace where DeviceID is not NULL";
+                    var selectQuery = $"SELECT * from dbo.workplace where DeviceID is not NULL";
                     var command = new SqlCommand(selectQuery, connection);
                     try {
                         var reader = command.ExecuteReader();
@@ -517,7 +527,7 @@ namespace zapsi_service_likov_terminal_special {
                 var connection = new SqlConnection {ConnectionString = $"Data Source={IpAddress}; Initial Catalog={Database}; User id={Login}; Password={Password};"};
                 try {
                     connection.Open();
-                    const string selectQuery = @"SELECT * FROM dbo.[sw_config]";
+                    var selectQuery = $"SELECT * FROM dbo.[sw_config]";
                     var command = new SqlCommand(selectQuery, connection);
 
 
@@ -587,7 +597,6 @@ namespace zapsi_service_likov_terminal_special {
                 var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
                 try {
                     connection.Open();
-
                     const string selectQuery = "SELECT count(oid) as count from zapsi2.workplace where DeviceID is not NULL limit 1";
                     var command = new MySqlCommand(selectQuery, connection);
                     try {
@@ -616,7 +625,7 @@ namespace zapsi_service_likov_terminal_special {
                 try {
                     connection.Open();
 
-                    const string selectQuery = "SELECT count(oid) as count from dbo.workplace where DeviceID is not NULL";
+                    var selectQuery = $"SELECT count(oid) as count from dbo.workplace where DeviceID is not NULL";
                     var command = new SqlCommand(selectQuery, connection);
                     try {
                         var reader = command.ExecuteReader();
