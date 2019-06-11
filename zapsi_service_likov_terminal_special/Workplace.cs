@@ -1691,15 +1691,6 @@ namespace zapsi_service_likov_terminal_special {
             return actualOrderId;
         }
 
-        public void CloseAndStartIdleForWorkplaceAt(DateTime workshiftStartsAt, ILogger logger) {
-            var idleId = GetIdleId(logger);
-            var anyIdleIsOpen = (idleId != 0);
-            if (anyIdleIsOpen) {
-                var workplaceHasActiveOrder = CheckIfWorkplaceHasActiveOrder(logger);
-                CloseIdleForWorkplace(workshiftStartsAt, logger);
-                CreateIdleForWorkplace(logger, workplaceHasActiveOrder, workshiftStartsAt);
-            }
-        }
 
         private int GetIdleId(ILogger logger) {
             var actualIdleId = 0;
@@ -1952,6 +1943,17 @@ namespace zapsi_service_likov_terminal_special {
             }
 
             return workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd;
+        }
+
+        public bool HasOpenOrderForMoreThanTenMinutes(ILogger logger) {
+            var orderIsOpenForMoreThanTenMinutes = false;
+            var workplaceHasOpenOrder = CheckIfWorkplaceHasActiveOrder(logger);
+            if (workplaceHasOpenOrder) {
+                if ((DateTime.Now - OrderStartDate).TotalMinutes > 10) {
+                    orderIsOpenForMoreThanTenMinutes = true;
+                }
+            }
+            return orderIsOpenForMoreThanTenMinutes;
         }
     }
 }

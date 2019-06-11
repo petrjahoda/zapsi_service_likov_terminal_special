@@ -160,7 +160,9 @@ namespace zapsi_service_likov_terminal_special {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceGroup is 2", logger);
                             if (workplace.IsInProductionForMoreThanTenMinutes(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production for more than 10 minutes", logger);
-                                workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
+                                if (workplace.HasOpenOrderForMoreThanTenMinutes(logger)) {
+                                    workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
+                                }
                             }
                         }
                     }
