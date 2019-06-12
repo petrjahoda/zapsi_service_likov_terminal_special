@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data.SqlClient;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MySql.Data.MySqlClient;
 using static System.Console;
@@ -461,11 +462,12 @@ namespace zapsi_service_likov_terminal_special {
                 var count = GetCountForWorkplace(logger);
                 var nokCount = GetNokCountForWorkplace(logger);
                 var averageCycle = GetAverageCycleForWorkplace(count);
+                var averageCycleAsString = averageCycle.ToString(CultureInfo.InvariantCulture).Replace(",", ".");
                 try {
                     connection.Open();
                     var command = connection.CreateCommand();
                     command.CommandText =
-                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycle} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};" +
+                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};" +
                         $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
                     try {
                         command.ExecuteNonQuery();
@@ -1900,8 +1902,13 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
-
-            if ((ShiftEndsAt - DateTime.Now).TotalMinutes < 15) {
+            var updatedShiftsEnd = DateTime.Now;
+            if (ShiftEndsAt.Day != DateTime.Now.Day) {
+                updatedShiftsEnd = ShiftEndsAt.AddDays(-1);
+            } else {
+                updatedShiftsEnd = ShiftEndsAt;
+            }
+            if ((updatedShiftsEnd - DateTime.Now).TotalMinutes < 15) {
                 LogInfo($"[ {Name} ] --INF-- It is less the 15 minutes before shifts end", logger);
                 timeIsFifteenMinutesBeforeShiftCloses = true;
             } else {
