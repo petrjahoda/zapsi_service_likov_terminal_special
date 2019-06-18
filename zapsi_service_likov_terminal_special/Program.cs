@@ -148,7 +148,7 @@ namespace zapsi_service_likov_terminal_special {
                 while (_databaseIsOnline && _loopCanRun && _systemIsActivated) {
                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Inside loop started", logger);
                     UpdateWorkplace(workplace, logger);
-                    if (workplace.OpenOrderState(logger) == 3) {
+                    if (workplace.OpenOrderState(logger) == 5 || workplace.OpenOrderState(logger) == 6) {
                         LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Open order has mode 3", logger);
                         if (workplace.WorkplaceGroupId == 1) {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceGroup is 1", logger);
