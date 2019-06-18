@@ -19,7 +19,6 @@ namespace zapsi_service_likov_terminal_special {
         public int ActualWorkshiftId { get; set; }
         public int PreviousWorkshiftId { get; set; }
         public DateTime LastStateDateTime { get; set; }
-        public DateTime ShiftEndsAt { get; set; }
         public int DefaultOrder { get; set; }
         public int DefaultProduct { get; set; }
         public int WorkplaceDivisionId { get; set; }
@@ -1868,8 +1867,8 @@ namespace zapsi_service_likov_terminal_special {
 
         public bool TimeIsFifteenMinutesBeforeShiftCloses(ILogger logger) {
             var timeIsFifteenMinutesBeforeShiftCloses = false;
-            var shiftStartsAtDateTime = DateTime.Now;
             var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            DateTime shiftStartsAtDateTime = DateTime.Now;
             try {
                 connection.Open();
                 var selectQuery = $"SELECT * from zapsi2.workshift where OID = {ActualWorkshiftId}";
@@ -1878,14 +1877,10 @@ namespace zapsi_service_likov_terminal_special {
                     var reader = command.ExecuteReader();
                     while (reader.Read()) {
                         var shiftStartsAt = reader["WorkshiftStart"].ToString();
-                        var length = Convert.ToDouble(reader["WorkshiftLenght"]);
-                        shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture);
+                        shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", CultureInfo.CurrentCulture);
                         if (Program.TimezoneIsUtc) {
                             shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture).ToUniversalTime();
                         }
-                        LogInfo($"[ {Name} ] --INF-- Workshift starts at " + shiftStartsAt, logger);
-                        ShiftEndsAt = shiftStartsAtDateTime.AddMinutes(length);
-                        LogInfo($"[ {Name} ] --INF-- Workshift ends at " + ShiftEndsAt, logger);
                     }
 
                     reader.Close();
@@ -1902,22 +1897,20 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
-            var updatedShiftsEnd = DateTime.Now;
-            if (ShiftEndsAt.Day != DateTime.Now.Day) {
-                updatedShiftsEnd = ShiftEndsAt.AddDays(-1);
-            } else {
-                updatedShiftsEnd = ShiftEndsAt;
-            }
-            if ((updatedShiftsEnd - DateTime.Now).TotalMinutes < 15) {
+            LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftStartsAtDateTime.Hour}:{shiftStartsAtDateTime.Minute}", logger);
+            LogInfo($"[ {Name} ] --INF-- Actual time: {DateTime.Now.Hour}:{DateTime.Now.Minute}", logger);
+            if (shiftStartsAtDateTime.Hour - DateTime.Now.Hour == 1 && DateTime.Now.Minute > 44) {
                 LogInfo($"[ {Name} ] --INF-- It is less the 15 minutes before shifts end", logger);
                 timeIsFifteenMinutesBeforeShiftCloses = true;
             } else {
                 LogInfo($"[ {Name} ] --INF-- It is more the 15 minutes before shifts end", logger);
             }
+
             return timeIsFifteenMinutesBeforeShiftCloses;
         }
 
         public bool HasOpenOrderWithStartBeforeThoseFifteenMinutes(ILogger logger) {
+            var thereIsOpenOrder = false;
             var workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = false;
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
@@ -1929,7 +1922,8 @@ namespace zapsi_service_likov_terminal_special {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
                         OrderStartDate = Convert.ToDateTime(reader["DTS"]);
-                    }
+                        thereIsOpenOrder = true;
+                    } 
 
                     reader.Close();
                     reader.Dispose();
@@ -1945,8 +1939,12 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
-            if ((ShiftEndsAt - OrderStartDate).TotalMinutes > 150) {
+            LogInfo($"[ {Name} ] --INF-- Order start time: {OrderStartDate.Hour}:{OrderStartDate.Minute}", logger);
+            if (thereIsOpenOrder && OrderStartDate.Minute < 45) {
+                LogInfo($"[ {Name} ] --INF-- Order started before 15 minutes shift end interval", logger);
                 workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = true;
+            } else {
+                LogInfo($"[ {Name} ] --INF-- Order", logger);
             }
 
             return workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd;
