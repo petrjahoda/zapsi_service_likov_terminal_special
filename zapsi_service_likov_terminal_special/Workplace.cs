@@ -1923,7 +1923,7 @@ namespace zapsi_service_likov_terminal_special {
                     if (reader.Read()) {
                         OrderStartDate = Convert.ToDateTime(reader["DTS"]);
                         thereIsOpenOrder = true;
-                    } 
+                    }
 
                     reader.Close();
                     reader.Dispose();
@@ -1959,6 +1959,37 @@ namespace zapsi_service_likov_terminal_special {
                 }
             }
             return orderIsOpenForMoreThanTenMinutes;
+        }
+
+        public int GetWorkplaceMode(ILogger logger) {
+            var workplaceModeId = 0;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * FROM zapsi2.workplace_mode where WorkplaceModeTypeId=3 and WorkplaceId={Oid}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        workplaceModeId = Convert.ToInt32(reader["OID"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking workplace mode: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+            return workplaceModeId;
         }
     }
 }
