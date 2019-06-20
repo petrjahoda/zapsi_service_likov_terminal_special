@@ -1868,7 +1868,8 @@ namespace zapsi_service_likov_terminal_special {
         public bool TimeIsFifteenMinutesBeforeShiftCloses(ILogger logger) {
             var timeIsFifteenMinutesBeforeShiftCloses = false;
             var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
-            DateTime shiftStartsAtDateTime = DateTime.Now;
+            var shiftStartsAtDateTime = DateTime.Now;
+            var shiftEndsAt = DateTime.Now;
             try {
                 connection.Open();
                 var selectQuery = $"SELECT * from zapsi2.workshift where OID = {ActualWorkshiftId}";
@@ -1877,10 +1878,12 @@ namespace zapsi_service_likov_terminal_special {
                     var reader = command.ExecuteReader();
                     while (reader.Read()) {
                         var shiftStartsAt = reader["WorkshiftStart"].ToString();
+                        var shiftLength  = Convert.ToInt32(reader["WorkshiftLenght"].ToString());
                         shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", CultureInfo.CurrentCulture);
                         if (Program.TimezoneIsUtc) {
                             shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture).ToUniversalTime();
                         }
+                        shiftEndsAt = shiftStartsAtDateTime.AddMinutes(shiftLength);
                     }
 
                     reader.Close();
@@ -1897,9 +1900,9 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
-            LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftStartsAtDateTime.Hour}:{shiftStartsAtDateTime.Minute}", logger);
+            LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftEndsAt.Hour}:{shiftEndsAt.Minute}", logger);
             LogInfo($"[ {Name} ] --INF-- Actual time: {DateTime.Now.Hour}:{DateTime.Now.Minute}", logger);
-            if (shiftStartsAtDateTime.Hour - DateTime.Now.Hour == 1 && DateTime.Now.Minute > 44) {
+            if (shiftEndsAt.Hour - DateTime.Now.Hour == 1 && DateTime.Now.Minute > 44) {
                 LogInfo($"[ {Name} ] --INF-- It is less the 15 minutes before shifts end", logger);
                 timeIsFifteenMinutesBeforeShiftCloses = true;
             } else {
