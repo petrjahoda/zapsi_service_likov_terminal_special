@@ -1783,6 +1783,8 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+            LogInfo("[ " + Name + " ] --INF-- Open order has workplacemode: " + workplaceModeId, logger);
+
             return workplaceModeId;
         }
 
@@ -1878,7 +1880,7 @@ namespace zapsi_service_likov_terminal_special {
                     var reader = command.ExecuteReader();
                     while (reader.Read()) {
                         var shiftStartsAt = reader["WorkshiftStart"].ToString();
-                        var shiftLength  = Convert.ToInt32(reader["WorkshiftLenght"].ToString());
+                        var shiftLength = Convert.ToInt32(reader["WorkshiftLenght"].ToString());
                         shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", CultureInfo.CurrentCulture);
                         if (Program.TimezoneIsUtc) {
                             shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture).ToUniversalTime();
@@ -1993,6 +1995,40 @@ namespace zapsi_service_likov_terminal_special {
                 connection.Dispose();
             }
             return workplaceModeId;
+        }
+
+        public bool IsInProduction(ILogger logger) {
+            bool workplaceIsInProduction = false;
+            var stateId = 1;
+            var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTE is null";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        stateId = Convert.ToInt32(reader["StateID"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+            if (stateId == 1) {
+                workplaceIsInProduction = true;
+            }
+            return workplaceIsInProduction;
         }
     }
 }

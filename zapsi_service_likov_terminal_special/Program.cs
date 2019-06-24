@@ -19,7 +19,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2019.2.3.20";
+        private const string BuildDate = "2019.2.3.21";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
 
@@ -149,11 +149,12 @@ namespace zapsi_service_likov_terminal_special {
                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Inside loop started", logger);
                     UpdateWorkplace(workplace, logger);
                     var workplaceMode = workplace.GetWorkplaceMode(logger);
+                    LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplacemode number: " + workplaceMode, logger);
                     if (workplace.OpenOrderState(logger) == workplaceMode) {
                         LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Open order has mode Serizeni", logger);
                         if (workplace.WorkplaceGroupId == 1) {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceGroup is 1", logger);
-                            if (workplace.HasSignalInOneInLastTenSeconds(logger)) {
+                            if (workplace.IsInProduction(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Has signal in 1 in last 10 seconds", logger);
                                 workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
                             }
