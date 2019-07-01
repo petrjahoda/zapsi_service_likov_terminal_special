@@ -1566,14 +1566,47 @@ namespace zapsi_service_likov_terminal_special {
 
         public void CloseAndStartOrderForWorkplaceAt(DateTime closeAndStartOrderDateTime, ILogger logger) {
             var orderId = GetOrderId(logger);
-            var userId = OrderUserId;
+            var userId = GetUserId(logger);
+
             var anyOrderisOpen = orderId != 0;
             if (anyOrderisOpen) {
                 CloseOrderForWorkplace(closeAndStartOrderDateTime, logger);
-                LogInfo("[ " + Name + " ] --INF-- Order closed, with ID " + orderId, logger);
+                LogInfo($"[ {Name} ] --INF-- Order closed, with ID {orderId} and user ID {userId}", logger);
                 CreateOrderForWorkplace(closeAndStartOrderDateTime, orderId, userId, 1, logger);
                 LogInfo("[ " + Name + " ] --INF-- New order opened", logger);
             }
+        }
+
+        private int GetUserId(ILogger logger) {
+            var actualUserId = 0;
+                var connection = new MySqlConnection(
+                    $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+                try {
+                    connection.Open();
+                    var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DeviceID={DeviceOid} and DTE is null";
+                    var command = new MySqlCommand(selectQuery, connection);
+                    try {
+                        var reader = command.ExecuteReader();
+                        if (reader.Read()) {
+                            actualUserId = Convert.ToInt32(reader["UserID"]);
+                        }
+
+                        reader.Close();
+                        reader.Dispose();
+                    } catch (Exception error) {
+                        LogError("[ " + Name + " ] --ERR-- Problem checking active user: " + error.Message + selectQuery, logger);
+                    } finally {
+                        command.Dispose();
+                    }
+
+                    connection.Close();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+                } finally {
+                    connection.Dispose();
+                }
+            
+            return actualUserId;
         }
 
         private void CreateOrderForWorkplace(DateTime startDateForOrder, int orderId, int? userId, int workplaceModeId, ILogger logger) {
@@ -1589,7 +1622,8 @@ namespace zapsi_service_likov_terminal_special {
                     connection.Open();
                     var command = connection.CreateCommand();
                     command.CommandText =
-                        $"INSERT INTO `zapsi2`.`terminal_input_order` (`DTS`, `DTE`, `OrderID`, `UserID`, `DeviceID`, `Interval`, `Count`, `Fail`, `AverageCycle`, `WorkerCount`, `WorkplaceModeID`, `Note`, `WorkshiftID`) VALUES ('{dateToInsert}', NULL, {orderId}, {userToInsert}, {DeviceOid}, 0, DEFAULT, DEFAULT, DEFAULT, DEFAULT, {workplaceModeId}, 'NULL', {ActualWorkshiftId})";
+                        $"INSERT INTO `zapsi2`.`terminal_input_order` (`DTS`, `DTE`, `OrderID`, `UserID`, `DeviceID`, `Interval`, `Count`, `Fail`, `AverageCycle`, `WorkerCount`, `WorkplaceModeID`, `Note`, `WorkshiftID`) " +
+                        $"VALUES ('{dateToInsert}', NULL, {orderId}, {userToInsert}, {DeviceOid}, 0, DEFAULT, DEFAULT, DEFAULT, DEFAULT, {workplaceModeId}, 'NULL', {ActualWorkshiftId})";
                     try {
                         command.ExecuteNonQuery();
                     } catch (Exception error) {
