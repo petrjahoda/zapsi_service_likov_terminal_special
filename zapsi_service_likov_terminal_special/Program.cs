@@ -19,7 +19,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2019.3.1.1";
+        private const string BuildDate = "2019.3.1.15";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
 
@@ -155,7 +155,7 @@ namespace zapsi_service_likov_terminal_special {
                         if (workplace.WorkplaceGroupId == 1) {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceGroup is 1", logger);
                             if (workplace.IsInProduction(logger)) {
-                                LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Has signal in 1 in last 10 seconds", logger);
+                                LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production", logger);
                                 workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
                             }
                         } else if (workplace.WorkplaceGroupId == 2) {

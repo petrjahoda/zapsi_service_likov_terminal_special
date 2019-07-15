@@ -448,8 +448,8 @@ namespace zapsi_service_likov_terminal_special {
             }
             return userIdFromLoginTable;
         }
-
-        public void CloseOrderForWorkplace(DateTime closingDateForOrder, ILogger logger) {
+        
+        public void CloseOrderSpecialForWorkplace(DateTime closingDateForOrder, ILogger logger) {
             var myDate = string.Format("{0:yyyy-MM-dd HH:mm:ss}", LastStateDateTime);
             var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", closingDateForOrder);
             if (LastStateDateTime.CompareTo(closingDateForOrder) > 0) {
@@ -468,6 +468,70 @@ namespace zapsi_service_likov_terminal_special {
                     command.CommandText =
                         $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};" +
                         $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
+                    try {
+                        command.ExecuteNonQuery();
+                    } catch (Exception error) {
+                        LogError("[ MAIN ] --ERR-- problem closing order in database: " + error.Message + "\n" + command.CommandText, logger);
+                    } finally {
+                        command.Dispose();
+                    }
+                    OrderUserId = 0;
+                    connection.Close();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+                } finally {
+                    connection.Dispose();
+                }
+            } else if (Program.DatabaseType.Equals("sqlserver")) {
+                var connection = new SqlConnection
+                    {ConnectionString = $"Data Source={Program.IpAddress}; Initial Catalog={Program.Database}; User id={Program.Login}; Password={Program.Password};"};
+
+                var count = GetCountForWorkplace(logger);
+                var averageCycle = GetAverageCycleForWorkplace(count);
+                var nokCount = GetNokCountForWorkplace(logger);
+
+                try {
+                    connection.Open();
+                    var command = connection.CreateCommand();
+
+                    command.CommandText =
+                        $"UPDATE [dbo].[terminal_input_order] SET [DTE] = '{dateToInsert}', [Interval] = (datediff(second, DTS, '{dateToInsert}')), [Count]={count}, [Fail]={nokCount}, [AverageCycle]={averageCycle} WHERE [DTE] is NULL and DeviceID={DeviceOid};" +
+                        $"UPDATE [dbo].[terminal_input_login] set [DTE] = '{dateToInsert}', [Interval] = (datediff(second, DTS, '{dateToInsert}')) where [DTE] is NULL and Deviceid={DeviceOid};";
+                    try {
+                        command.ExecuteNonQuery();
+                    } catch (Exception error) {
+                        LogError("[ MAIN ] --ERR-- problem closing order in database: " + error.Message + command.CommandText, logger);
+                    } finally {
+                        command.Dispose();
+                    }
+
+                    connection.Close();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+                } finally {
+                    connection.Dispose();
+                }
+            }
+        }
+
+        public void CloseOrderForWorkplace(DateTime closingDateForOrder, ILogger logger) {
+            var myDate = string.Format("{0:yyyy-MM-dd HH:mm:ss}", LastStateDateTime);
+            var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", closingDateForOrder);
+            if (LastStateDateTime.CompareTo(closingDateForOrder) > 0) {
+                dateToInsert = myDate;
+            }
+            if (Program.DatabaseType.Equals("mysql")) {
+                var connection = new MySqlConnection(
+                    $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+                var count = GetCountForWorkplace(logger);
+                var nokCount = GetNokCountForWorkplace(logger);
+                var averageCycle = GetAverageCycleForWorkplace(count);
+                var averageCycleAsString = averageCycle.ToString(CultureInfo.InvariantCulture).Replace(",", ".");
+                try {
+                    connection.Open();
+                    var command = connection.CreateCommand();
+                    command.CommandText =
+                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};";
                     try {
                         command.ExecuteNonQuery();
                     } catch (Exception error) {
@@ -1570,7 +1634,7 @@ namespace zapsi_service_likov_terminal_special {
 
             var anyOrderisOpen = orderId != 0;
             if (anyOrderisOpen) {
-                CloseOrderForWorkplace(closeAndStartOrderDateTime, logger);
+                CloseOrderSpecialForWorkplace(closeAndStartOrderDateTime, logger);
                 LogInfo($"[ {Name} ] --INF-- Order closed, with ID {orderId} and user ID {userId}", logger);
                 CreateOrderForWorkplace(closeAndStartOrderDateTime, orderId, userId, 1, logger);
                 LogInfo("[ " + Name + " ] --INF-- New order opened", logger);
@@ -2038,6 +2102,7 @@ namespace zapsi_service_likov_terminal_special {
             try {
                 connection.Open();
                 var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTE is null";
+                Console.WriteLine(selectQuery);
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
@@ -2047,8 +2112,9 @@ namespace zapsi_service_likov_terminal_special {
 
                     reader.Close();
                     reader.Dispose();
+
                 } catch (Exception error) {
-                    LogError("[ " + Name + " ] --ERR-- Problem checking active order: " + error.Message + selectQuery, logger);
+                    LogError("[ " + Name + " ] --ERR-- Problem checking production state: " + error.Message + selectQuery, logger);
                 } finally {
                     command.Dispose();
                 }
