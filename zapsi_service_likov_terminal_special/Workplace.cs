@@ -448,8 +448,8 @@ namespace zapsi_service_likov_terminal_special {
             }
             return userIdFromLoginTable;
         }
-        
-        public void CloseOrderSpecialForWorkplace(DateTime closingDateForOrder, ILogger logger) {
+
+        public void CloseOrderForWorkplace(DateTime closingDateForOrder, bool closeUserLogin, ILogger logger) {
             var myDate = string.Format("{0:yyyy-MM-dd HH:mm:ss}", LastStateDateTime);
             var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", closingDateForOrder);
             if (LastStateDateTime.CompareTo(closingDateForOrder) > 0) {
@@ -465,9 +465,15 @@ namespace zapsi_service_likov_terminal_special {
                 try {
                     connection.Open();
                     var command = connection.CreateCommand();
-                    command.CommandText =
-                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};" +
-                        $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
+                    if (closeUserLogin) {
+                        command.CommandText =
+                            $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};" +
+                            $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
+                    } else {
+                        command.CommandText =
+                            $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};";
+                    }
+
                     try {
                         command.ExecuteNonQuery();
                     } catch (Exception error) {
@@ -514,69 +520,6 @@ namespace zapsi_service_likov_terminal_special {
             }
         }
 
-        public void CloseOrderForWorkplace(DateTime closingDateForOrder, ILogger logger) {
-            var myDate = string.Format("{0:yyyy-MM-dd HH:mm:ss}", LastStateDateTime);
-            var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", closingDateForOrder);
-            if (LastStateDateTime.CompareTo(closingDateForOrder) > 0) {
-                dateToInsert = myDate;
-            }
-            if (Program.DatabaseType.Equals("mysql")) {
-                var connection = new MySqlConnection(
-                    $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
-                var count = GetCountForWorkplace(logger);
-                var nokCount = GetNokCountForWorkplace(logger);
-                var averageCycle = GetAverageCycleForWorkplace(count);
-                var averageCycleAsString = averageCycle.ToString(CultureInfo.InvariantCulture).Replace(",", ".");
-                try {
-                    connection.Open();
-                    var command = connection.CreateCommand();
-                    command.CommandText =
-                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};";
-                    try {
-                        command.ExecuteNonQuery();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- problem closing order in database: " + error.Message + "\n" + command.CommandText, logger);
-                    } finally {
-                        command.Dispose();
-                    }
-                    OrderUserId = 0;
-                    connection.Close();
-                } catch (Exception error) {
-                    LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
-                } finally {
-                    connection.Dispose();
-                }
-            } else if (Program.DatabaseType.Equals("sqlserver")) {
-                var connection = new SqlConnection
-                    {ConnectionString = $"Data Source={Program.IpAddress}; Initial Catalog={Program.Database}; User id={Program.Login}; Password={Program.Password};"};
-
-                var count = GetCountForWorkplace(logger);
-                var averageCycle = GetAverageCycleForWorkplace(count);
-                var nokCount = GetNokCountForWorkplace(logger);
-
-                try {
-                    connection.Open();
-                    var command = connection.CreateCommand();
-
-                    command.CommandText =
-                        $"UPDATE [dbo].[terminal_input_order] SET [DTE] = '{dateToInsert}', [Interval] = (datediff(second, DTS, '{dateToInsert}')), [Count]={count}, [Fail]={nokCount}, [AverageCycle]={averageCycle} WHERE [DTE] is NULL and DeviceID={DeviceOid};" +
-                        $"UPDATE [dbo].[terminal_input_login] set [DTE] = '{dateToInsert}', [Interval] = (datediff(second, DTS, '{dateToInsert}')) where [DTE] is NULL and Deviceid={DeviceOid};";
-                    try {
-                        command.ExecuteNonQuery();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- problem closing order in database: " + error.Message + command.CommandText, logger);
-                    } finally {
-                        command.Dispose();
-                    }
-
-                    connection.Close();
-                } catch (Exception error) {
-                    LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
-                } finally {
-                    connection.Dispose();
-                }
-            }
-        }
 
         private int GetCountForWorkplace(ILogger logger) {
             var count = 0;
@@ -1634,7 +1577,7 @@ namespace zapsi_service_likov_terminal_special {
 
             var anyOrderisOpen = orderId != 0;
             if (anyOrderisOpen) {
-                CloseOrderSpecialForWorkplace(closeAndStartOrderDateTime, logger);
+                CloseOrderForWorkplace(closeAndStartOrderDateTime, false, logger);
                 LogInfo($"[ {Name} ] --INF-- Order closed, with ID {orderId} and user ID {userId}", logger);
                 CreateOrderForWorkplace(closeAndStartOrderDateTime, orderId, userId, 1, logger);
                 LogInfo("[ " + Name + " ] --INF-- New order opened", logger);
@@ -1643,33 +1586,33 @@ namespace zapsi_service_likov_terminal_special {
 
         private int GetUserId(ILogger logger) {
             var actualUserId = 0;
-                var connection = new MySqlConnection(
-                    $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DeviceID={DeviceOid} and DTE is null";
+                var command = new MySqlCommand(selectQuery, connection);
                 try {
-                    connection.Open();
-                    var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DeviceID={DeviceOid} and DTE is null";
-                    var command = new MySqlCommand(selectQuery, connection);
-                    try {
-                        var reader = command.ExecuteReader();
-                        if (reader.Read()) {
-                            actualUserId = Convert.ToInt32(reader["UserID"]);
-                        }
-
-                        reader.Close();
-                        reader.Dispose();
-                    } catch (Exception error) {
-                        LogError("[ " + Name + " ] --ERR-- Problem checking active user: " + error.Message + selectQuery, logger);
-                    } finally {
-                        command.Dispose();
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        actualUserId = Convert.ToInt32(reader["UserID"]);
                     }
 
-                    connection.Close();
+                    reader.Close();
+                    reader.Dispose();
                 } catch (Exception error) {
-                    LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active user: " + error.Message + selectQuery, logger);
                 } finally {
-                    connection.Dispose();
+                    command.Dispose();
                 }
-            
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
             return actualUserId;
         }
 
@@ -2112,7 +2055,6 @@ namespace zapsi_service_likov_terminal_special {
 
                     reader.Close();
                     reader.Dispose();
-
                 } catch (Exception error) {
                     LogError("[ " + Name + " ] --ERR-- Problem checking production state: " + error.Message + selectQuery, logger);
                 } finally {

@@ -170,7 +170,7 @@ namespace zapsi_service_likov_terminal_special {
                     }
                     if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger)) {
                         if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
-                            workplace.CloseOrderForWorkplace(DateTime.Now, logger);
+                            workplace.CloseOrderForWorkplace(DateTime.Now, true, logger);
                         }
                     }
                     var sleepTime = Convert.ToDouble(_downloadEvery);
