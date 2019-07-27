@@ -5010,7 +5010,8 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\jahod\\.nuget\\packages\\": {}
+    "C:\\Users\\jahod\\.nuget\\packages\\": {},
+    "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
@@ -5021,6 +5022,9 @@
       "packagesPath": "C:\\Users\\jahod\\.nuget\\packages\\",
       "outputPath": "C:\\Users\\jahod\\zapsi.eu\\Zapsi - Documents\\Software\\Petr Jahoda\\zapsi_service_likov_terminal_special\\zapsi_service_likov_terminal_special\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
+      ],
       "configFilePaths": [
         "C:\\Users\\jahod\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
