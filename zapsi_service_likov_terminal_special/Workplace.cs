@@ -2001,7 +2001,7 @@ namespace zapsi_service_likov_terminal_special {
                 connection.Dispose();
             }
 
-            if (thereIsOpenOrder && OrderStartDate < DateTime.Now) {
+            if (thereIsOpenOrder && DateTime.Compare(OrderStartDate, DateTime.Now) < 0) {
                 LogInfo($"[ {Name} ] --INF-- Order started before 15 minutes shift end interval", logger);
                 workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = true;
             } else {
