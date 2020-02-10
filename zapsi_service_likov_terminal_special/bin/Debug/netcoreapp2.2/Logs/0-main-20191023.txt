@@ -1,0 +1,4 @@
+2019-10-23T10:30:37.0357950+02:00  [INF] 10/23/2019 10:30:37 [ MAIN ] --INF-- Program built at: 2019.3.1.16 (e365c250)
+2019-10-23T10:30:37.2237710+02:00  [INF] 10/23/2019 10:30:37 [ MAIN ] --INF-- Config file created. (79c617d4)
+2019-10-23T10:30:37.2240160+02:00  [INF] 10/23/2019 10:30:37 [ MAIN ] --INF-- Backup file created. (6ca0da3c)
+2019-10-23T10:30:37.3182530+02:00  [INF] 10/23/2019 10:30:37 [ MAIN ] --INF-- Config loaded from file for customer: unactivated software (8be6ce4a)

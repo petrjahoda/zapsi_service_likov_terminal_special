@@ -19,7 +19,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2019.3.1.16";
+        private const string BuildDate = "2019.4.1.23";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
 
@@ -126,9 +126,11 @@ namespace zapsi_service_likov_terminal_special {
 
                     _swConfigCreated = true;
                 }
+
 //                CheckSystemActivation(logger);
                 UpdateSmtpSettings(logger);
             }
+
             if (_databaseIsOnline && _numberOfRunningWorkplaces == 0 && _systemIsActivated) {
                 LogInfo("[ MAIN ] --INF-- Running main loop ", logger);
                 var listOfWorkplaces = GetListOfWorkplacesFromDatabase(logger);
@@ -168,11 +170,15 @@ namespace zapsi_service_likov_terminal_special {
                             }
                         }
                     }
+
                     if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger)) {
                         if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
                             workplace.CloseOrderForWorkplace(DateTime.Now, true, logger);
                         }
+
+                        workplace.LogOutAllUsers(DateTime.Now, logger);
                     }
+
                     var sleepTime = Convert.ToDouble(_downloadEvery);
                     var waitTime = sleepTime - timer.ElapsedMilliseconds;
                     if ((waitTime) > 0) {
@@ -435,6 +441,7 @@ namespace zapsi_service_likov_terminal_special {
             if (option.Equals("AddCyclesToOrder")) {
                 key = AddCyclesToOrder;
             }
+
             if (option.Equals("SmtpClient")) {
                 key = _smtpClient;
             }

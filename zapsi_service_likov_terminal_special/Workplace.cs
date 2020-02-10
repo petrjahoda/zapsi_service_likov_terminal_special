@@ -222,6 +222,7 @@ namespace zapsi_service_likov_terminal_special {
                 if (LastStateDateTime.CompareTo(dateToInsert) > 0) {
                     dateToInsert = myDate;
                 }
+
                 if (Program.DatabaseType.Equals("mysql")) {
                     var connection = new MySqlConnection(
                         $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
@@ -333,12 +334,15 @@ namespace zapsi_service_likov_terminal_special {
                 idleOidToInsert = 1;
                 userIdToInsert = OrderUserId.ToString();
             }
+
             if (userIdToInsert.Length == 0) {
                 userIdToInsert = DownloadFromLoginTable(logger);
             }
+
             if (userIdToInsert.Equals("0") || userIdToInsert.Length == 0) {
                 userIdToInsert = "NULL";
             }
+
             if (Program.DatabaseType.Equals("mysql")) {
                 var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
                 try {
@@ -446,6 +450,7 @@ namespace zapsi_service_likov_terminal_special {
                     connection.Dispose();
                 }
             }
+
             return userIdFromLoginTable;
         }
 
@@ -455,6 +460,7 @@ namespace zapsi_service_likov_terminal_special {
             if (LastStateDateTime.CompareTo(closingDateForOrder) > 0) {
                 dateToInsert = myDate;
             }
+
             if (Program.DatabaseType.Equals("mysql")) {
                 var connection = new MySqlConnection(
                     $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
@@ -481,6 +487,7 @@ namespace zapsi_service_likov_terminal_special {
                     } finally {
                         command.Dispose();
                     }
+
                     OrderUserId = 0;
                     connection.Close();
                 } catch (Exception error) {
@@ -610,6 +617,7 @@ namespace zapsi_service_likov_terminal_special {
                     averageCycle = 0;
                 }
             }
+
             return averageCycle;
         }
 
@@ -1069,6 +1077,7 @@ namespace zapsi_service_likov_terminal_special {
                     connection.Dispose();
                 }
             }
+
             CheckForFirstRunWhenPreviouslyWasNoShift(actualWorkShiftId);
             return actualWorkShiftId;
         }
@@ -1621,6 +1630,7 @@ namespace zapsi_service_likov_terminal_special {
             if (userId != null) {
                 userToInsert = userId.ToString();
             }
+
             var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", startDateForOrder);
             if (Program.DatabaseType.Equals("mysql")) {
                 var connection = new MySqlConnection(
@@ -1824,6 +1834,7 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             LogInfo("[ " + Name + " ] --INF-- Open order has workplacemode: " + workplaceModeId, logger);
 
             return workplaceModeId;
@@ -1899,11 +1910,13 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             if (stateId == 1) {
                 if ((DateTime.Now - stateDateTimeStart).TotalMinutes > 10) {
                     workplaceIsInProduction = true;
                 }
             }
+
             return workplaceIsInProduction;
         }
 
@@ -1926,6 +1939,7 @@ namespace zapsi_service_likov_terminal_special {
                         if (Program.TimezoneIsUtc) {
                             shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture).ToUniversalTime();
                         }
+
                         shiftEndsAt = shiftStartsAtDateTime.AddMinutes(shiftLength);
                     }
 
@@ -1943,6 +1957,7 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftEndsAt.Hour}:{shiftEndsAt.Minute}", logger);
             LogInfo($"[ {Name} ] --INF-- Actual time: {DateTime.Now.Hour}:{DateTime.Now.Minute}", logger);
             if (shiftEndsAt.Hour - DateTime.Now.Hour == 1 && DateTime.Now.Minute > 44) {
@@ -1985,8 +2000,8 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
-            LogInfo($"[ {Name} ] --INF-- Order start time: {OrderStartDate.Hour}:{OrderStartDate.Minute}", logger);
-            if (thereIsOpenOrder && OrderStartDate.Minute < 45) {
+
+            if (thereIsOpenOrder && OrderStartDate < DateTime.Now) {
                 LogInfo($"[ {Name} ] --INF-- Order started before 15 minutes shift end interval", logger);
                 workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = true;
             } else {
@@ -2004,6 +2019,7 @@ namespace zapsi_service_likov_terminal_special {
                     orderIsOpenForMoreThanTenMinutes = true;
                 }
             }
+
             return orderIsOpenForMoreThanTenMinutes;
         }
 
@@ -2035,6 +2051,7 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             return workplaceModeId;
         }
 
@@ -2067,10 +2084,38 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             if (stateId == 1) {
                 workplaceIsInProduction = true;
             }
+
             return workplaceIsInProduction;
+        }
+
+        public void LogOutAllUsers(DateTime now, ILogger logger) {
+            var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", now);
+            var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var command = connection.CreateCommand();
+                command.CommandText =
+                    $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
+
+                try {
+                    command.ExecuteNonQuery();
+                } catch (Exception error) {
+                    LogError("[ MAIN ] --ERR-- problem closing order in database: " + error.Message + "\n" + command.CommandText, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                OrderUserId = 0;
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
         }
     }
 }
