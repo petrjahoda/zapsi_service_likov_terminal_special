@@ -479,7 +479,7 @@ namespace zapsi_service_likov_terminal_special {
                         command.CommandText =
                             $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};";
                     }
-
+                    LogInfo("[ " + Name + " ] --INF-- " + command.CommandText, logger);
                     try {
                         command.ExecuteNonQuery();
                     } catch (Exception error) {
@@ -2001,11 +2001,11 @@ namespace zapsi_service_likov_terminal_special {
                 connection.Dispose();
             }
 
-            if (thereIsOpenOrder && DateTime.Compare(OrderStartDate, DateTime.Now) < 0) {
+            if (thereIsOpenOrder && (DateTime.Now - OrderStartDate).TotalMinutes > 15) {
                 LogInfo($"[ {Name} ] --INF-- Order started before 15 minutes shift end interval", logger);
                 workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = true;
             } else {
-                LogInfo($"[ {Name} ] --INF-- Order", logger);
+                LogInfo($"[ {Name} ] --INF-- Order starts in interval 15 minutes before shifts end", logger);
             }
 
             return workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd;

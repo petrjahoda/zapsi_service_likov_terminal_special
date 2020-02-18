@@ -175,8 +175,6 @@ namespace zapsi_service_likov_terminal_special {
                         if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
                             workplace.CloseOrderForWorkplace(DateTime.Now, true, logger);
                         }
-
-                        workplace.LogOutAllUsers(DateTime.Now, logger);
                     }
 
                     var sleepTime = Convert.ToDouble(_downloadEvery);
