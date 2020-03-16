@@ -472,10 +472,12 @@ namespace zapsi_service_likov_terminal_special {
                     connection.Open();
                     var command = connection.CreateCommand();
                     if (closeUserLogin) {
+                        LogInfo("[ " + Name + " ] --INF-- Closing order and login", logger);
                         command.CommandText =
                             $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};" +
                             $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
                     } else {
+                        LogInfo("[ " + Name + " ] --INF-- Closing order", logger);
                         command.CommandText =
                             $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};";
                     }
@@ -2091,31 +2093,6 @@ namespace zapsi_service_likov_terminal_special {
 
             return workplaceIsInProduction;
         }
-
-        public void LogOutAllUsers(DateTime now, ILogger logger) {
-            var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", now);
-            var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
-            try {
-                connection.Open();
-                var command = connection.CreateCommand();
-                command.CommandText =
-                    $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
-
-                try {
-                    command.ExecuteNonQuery();
-                } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- problem closing order in database: " + error.Message + "\n" + command.CommandText, logger);
-                } finally {
-                    command.Dispose();
-                }
-
-                OrderUserId = 0;
-                connection.Close();
-            } catch (Exception error) {
-                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
-            } finally {
-                connection.Dispose();
-            }
-        }
+        
     }
 }

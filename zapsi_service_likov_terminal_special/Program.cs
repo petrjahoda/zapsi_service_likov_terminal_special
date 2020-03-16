@@ -19,7 +19,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2019.4.1.23";
+        private const string BuildDate = "2020.1.2.19";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
 
@@ -144,6 +144,7 @@ namespace zapsi_service_likov_terminal_special {
 
         private static void RunWorkplace(Workplace workplace) {
             var outputPath = CreateLogFileIfNotExists(workplace.Oid + "-" + workplace.Name + ".txt");
+            var closeOpenOrders = true;
             using (var factory = CreateLogger(outputPath, out var logger)) {
                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Started running", logger);
                 var timer = Stopwatch.StartNew();
@@ -170,11 +171,12 @@ namespace zapsi_service_likov_terminal_special {
                             }
                         }
                     }
-
-                    if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger)) {
-                        if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
-                            workplace.CloseOrderForWorkplace(DateTime.Now, true, logger);
-                        }
+                    LogDeviceInfo($"[ {workplace.Name} ] --INF-- Close open orders: " + closeOpenOrders, logger);
+                    if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && closeOpenOrders) {
+                        workplace.CloseOrderForWorkplace(DateTime.Now, true, logger);
+                        closeOpenOrders = false;
+                    } else if (!workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && !closeOpenOrders){
+                        closeOpenOrders = true;
                     }
 
                     var sleepTime = Convert.ToDouble(_downloadEvery);
