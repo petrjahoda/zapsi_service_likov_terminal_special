@@ -481,6 +481,7 @@ namespace zapsi_service_likov_terminal_special {
                         command.CommandText =
                             $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};";
                     }
+
                     LogInfo("[ " + Name + " ] --INF-- " + command.CommandText, logger);
                     try {
                         command.ExecuteNonQuery();
@@ -2093,6 +2094,33 @@ namespace zapsi_service_likov_terminal_special {
 
             return workplaceIsInProduction;
         }
-        
+
+        public void CloseLoginForWorkplace(DateTime dateToInsert, ILogger logger) {
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var command = connection.CreateCommand();
+                LogInfo("[ " + Name + " ] --INF-- Closing order and login", logger);
+                command.CommandText =
+                    $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
+
+                LogInfo("[ " + Name + " ] --INF-- " + command.CommandText, logger);
+                try {
+                    command.ExecuteNonQuery();
+                } catch (Exception error) {
+                    LogError("[ MAIN ] --ERR-- problem closing order in database: " + error.Message + "\n" + command.CommandText, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                OrderUserId = 0;
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+        }
     }
 }

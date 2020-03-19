@@ -128,7 +128,7 @@ namespace zapsi_service_likov_terminal_special {
                 }
 
 //                CheckSystemActivation(logger);
-                UpdateSmtpSettings(logger);
+                // UpdateSmtpSettings(logger);
             }
 
             if (_databaseIsOnline && _numberOfRunningWorkplaces == 0 && _systemIsActivated) {
@@ -173,7 +173,11 @@ namespace zapsi_service_likov_terminal_special {
                     }
                     LogDeviceInfo($"[ {workplace.Name} ] --INF-- Close open orders: " + closeOpenOrders, logger);
                     if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && closeOpenOrders) {
-                        workplace.CloseOrderForWorkplace(DateTime.Now, true, logger);
+                        if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
+                            workplace.CloseOrderForWorkplace(DateTime.Now, true, logger);
+                        } else {
+                            workplace.CloseLoginForWorkplace(DateTime.Now, logger);
+                        }
                         closeOpenOrders = false;
                     } else if (!workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && !closeOpenOrders){
                         closeOpenOrders = true;
