@@ -2095,7 +2095,8 @@ namespace zapsi_service_likov_terminal_special {
             return workplaceIsInProduction;
         }
 
-        public void CloseLoginForWorkplace(DateTime dateToInsert, ILogger logger) {
+        public void CloseLoginForWorkplace(DateTime closingDateForOrder, ILogger logger) {
+            var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", closingDateForOrder);
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
