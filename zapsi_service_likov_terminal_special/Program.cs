@@ -155,14 +155,14 @@ namespace zapsi_service_likov_terminal_special {
                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplacemode number: " + workplaceMode, logger);
                     if (workplace.OpenOrderState(logger) == workplaceMode) {
                         LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Open order has mode Serizeni", logger);
-                        if (workplace.WorkplaceGroupId == 1) {
-                            LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceGroup is 1", logger);
+                        if (workplace.WorkplaceDivisionId == 2) {
+                            LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 2", logger);
                             if (workplace.IsInProduction(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production", logger);
                                 workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
                             }
-                        } else if (workplace.WorkplaceGroupId == 2) {
-                            LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceGroup is 2", logger);
+                        } else if (workplace.WorkplaceDivisionId == 3) {
+                            LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 3", logger);
                             if (workplace.IsInProductionForMoreThanTenMinutes(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production for more than 10 minutes", logger);
                                 if (workplace.HasOpenOrderForMoreThanTenMinutes(logger)) {

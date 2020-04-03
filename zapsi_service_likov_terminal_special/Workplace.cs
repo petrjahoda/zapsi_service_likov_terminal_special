@@ -1898,7 +1898,7 @@ namespace zapsi_service_likov_terminal_special {
                         stateId = Convert.ToInt32(reader["StateID"]);
                         stateDateTimeStart = Convert.ToDateTime(reader["DTS"]);
                     }
-
+                    LogInfo("[ " + Name + " ] --INF-- StateId: " + stateId, logger);
                     reader.Close();
                     reader.Dispose();
                 } catch (Exception error) {
@@ -2065,7 +2065,6 @@ namespace zapsi_service_likov_terminal_special {
             try {
                 connection.Open();
                 var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTE is null";
-                Console.WriteLine(selectQuery);
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
@@ -2073,6 +2072,7 @@ namespace zapsi_service_likov_terminal_special {
                         stateId = Convert.ToInt32(reader["StateID"]);
                     }
 
+                    LogInfo("[ " + Name + " ] --INF-- StateId: " + stateId, logger);
                     reader.Close();
                     reader.Dispose();
                 } catch (Exception error) {
