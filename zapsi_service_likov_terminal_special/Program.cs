@@ -2,13 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -19,7 +18,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2020.1.2.19";
+        private const string BuildDate = "2020.2.3.8";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
 
@@ -126,9 +125,6 @@ namespace zapsi_service_likov_terminal_special {
 
                     _swConfigCreated = true;
                 }
-
-//                CheckSystemActivation(logger);
-                // UpdateSmtpSettings(logger);
             }
 
             if (_databaseIsOnline && _numberOfRunningWorkplaces == 0 && _systemIsActivated) {
@@ -158,28 +154,53 @@ namespace zapsi_service_likov_terminal_special {
                         if (workplace.WorkplaceDivisionId == 2) {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 2", logger);
                             if (workplace.IsInProduction(logger)) {
-                                LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production", logger);
-                                workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
+                                LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace is in production", logger);
+                                var productionDateTime = workplace.GetProductionDateTimeFor(logger);
+                                var orderStartDateTime = workplace.GetOrderStartDateTimeFor(logger);
+                                DateTime dateTimeToInsert;
+                                if (orderStartDateTime > productionDateTime) {
+                                    LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Order start date is newer: " + orderStartDateTime.ToString(CultureInfo.InvariantCulture), logger);
+                                    dateTimeToInsert = orderStartDateTime;
+                                } else {
+                                    LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Production start date is newer: " + productionDateTime.ToString(CultureInfo.InvariantCulture), logger);
+                                    dateTimeToInsert = productionDateTime;
+                                }
+
+                                workplace.CloseAndStartOrderForWorkplaceAt(dateTimeToInsert, logger);
                             }
                         } else if (workplace.WorkplaceDivisionId == 3) {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 3", logger);
                             if (workplace.IsInProductionForMoreThanTenMinutes(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production for more than 10 minutes", logger);
                                 if (workplace.HasOpenOrderForMoreThanTenMinutes(logger)) {
-                                    workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
+                                    LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace has open order for more than 10 minutes", logger);
+                                    var productionDateTime = workplace.GetProductionDateTimeFor(logger);
+                                    var orderStartDateTime = workplace.GetOrderStartDateTimeFor(logger);
+                                    DateTime dateTimeToInsert;
+                                    if (orderStartDateTime > productionDateTime) {
+                                        LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Order start date is newer: " + orderStartDateTime.ToString(CultureInfo.InvariantCulture), logger);
+                                        dateTimeToInsert = orderStartDateTime.AddMinutes(10.0);
+                                    } else {
+                                        LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Production start date is newer: " + productionDateTime.ToString(CultureInfo.InvariantCulture), logger);
+                                        dateTimeToInsert = productionDateTime.AddMinutes(10.0);
+                                    }
+
+                                    workplace.CloseAndStartOrderForWorkplaceAt(dateTimeToInsert, logger);
                                 }
                             }
                         }
                     }
+
                     LogDeviceInfo($"[ {workplace.Name} ] --INF-- Close open orders: " + closeOpenOrders, logger);
                     if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && closeOpenOrders) {
                         if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
-                            workplace.CloseOrderForWorkplace(DateTime.Now, true, logger);
+                            workplace.CloseOrderForWorkplaceBeforeFifteenMinutes(DateTime.Now, true, logger);
                         } else {
                             workplace.CloseLoginForWorkplace(DateTime.Now, logger);
                         }
+
                         closeOpenOrders = false;
-                    } else if (!workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && !closeOpenOrders){
+                    } else if (!workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && !closeOpenOrders) {
                         closeOpenOrders = true;
                     }
 
@@ -201,6 +222,7 @@ namespace zapsi_service_likov_terminal_special {
             }
         }
 
+
         private static void UpdateWorkplace(Workplace workplace, ILogger logger) {
             workplace.AddProductionPort(logger);
             workplace.AddCountPort(logger);
@@ -211,218 +233,42 @@ namespace zapsi_service_likov_terminal_special {
 
         private static List<Workplace> GetListOfWorkplacesFromDatabase(ILogger logger) {
             var workplaces = new List<Workplace>();
-            if (DatabaseType.Equals("mysql")) {
-                var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            try {
+                connection.Open();
+                const string selectQuery = "SELECT * from zapsi2.workplace where DeviceID is not NULL";
+                var command = new MySqlCommand(selectQuery, connection);
                 try {
-                    connection.Open();
-                    const string selectQuery = "SELECT * from zapsi2.workplace where DeviceID is not NULL";
-                    var command = new MySqlCommand(selectQuery, connection);
-                    try {
-                        var reader = command.ExecuteReader();
-                        while (reader.Read()) {
-                            var workplace = new Workplace {
-                                Oid = Convert.ToInt32(reader["OID"]),
-                                Name = Convert.ToString(reader["Name"]),
-                                DeviceOid = Convert.ToInt32(reader["DeviceID"]),
-                                WorkplaceDivisionId = Convert.ToInt32(reader["WorkplaceDivisionID"]),
-                                WorkplaceGroupId = Convert.ToInt32(reader["WorkplaceGroupID"])
-                            };
-                            workplaces.Add(workplace);
-                        }
-
-                        reader.Close();
-                        reader.Dispose();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- Problem getting list of workplaces " + error.Message + selectQuery, logger);
-                    } finally {
-                        command.Dispose();
+                    var reader = command.ExecuteReader();
+                    while (reader.Read()) {
+                        var workplace = new Workplace {
+                            Oid = Convert.ToInt32(reader["OID"]),
+                            Name = Convert.ToString(reader["Name"]),
+                            DeviceOid = Convert.ToInt32(reader["DeviceID"]),
+                            WorkplaceDivisionId = Convert.ToInt32(reader["WorkplaceDivisionID"]),
+                            WorkplaceGroupId = Convert.ToInt32(reader["WorkplaceGroupID"])
+                        };
+                        workplaces.Add(workplace);
                     }
 
-                    connection.Close();
+                    reader.Close();
+                    reader.Dispose();
                 } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
+                    LogError("[ MAIN ] --ERR-- Problem getting list of workplaces " + error.Message + selectQuery, logger);
                 } finally {
-                    connection.Dispose();
+                    command.Dispose();
                 }
-            } else if (DatabaseType.Equals("sqlserver")) {
-                var connection = new SqlConnection {ConnectionString = $"Data Source={IpAddress}; Initial Catalog={Database}; User id={Login}; Password={Password};"};
 
-                try {
-                    connection.Open();
-                    var selectQuery = $"SELECT * from dbo.workplace where DeviceID is not NULL";
-                    var command = new SqlCommand(selectQuery, connection);
-                    try {
-                        var reader = command.ExecuteReader();
-                        while (reader.Read()) {
-                            var workplace = new Workplace {
-                                Oid = Convert.ToInt32(reader["OID"]),
-                                Name = Convert.ToString(reader["Name"]),
-                                DeviceOid = Convert.ToInt32(reader["DeviceID"]),
-                                WorkplaceDivisionId = Convert.ToInt32(reader["WorkplaceDivisionID"]),
-                                WorkplaceGroupId = Convert.ToInt32(reader["WorkplaceGroupID"])
-                            };
-                            workplaces.Add(workplace);
-                        }
-
-                        reader.Close();
-                        reader.Dispose();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- Problem getting list of workplaces " + error.Message + selectQuery, logger);
-                    } finally {
-                        command.Dispose();
-                    }
-
-                    connection.Close();
-                } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
-                } finally {
-                    connection.Dispose();
-                }
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
             }
 
             return workplaces;
         }
 
-
-        private static void UpdateSmtpSettings(ILogger logger) {
-            try {
-                _smtpClient = DownloadFromDatabase(logger, "SmtpClient");
-                _smtpPort = DownloadFromDatabase(logger, "SmtpPort");
-                _smtpUsername = DownloadFromDatabase(logger, "SmtpUsername");
-                _smtpPassword = DownloadFromDatabase(logger, "SmtpPassword");
-            } catch (Exception error) {
-                LogError("[ MAIN ] --ERR-- problem inserting smtp settings from database: " + error.Message, logger);
-            }
-
-            UpdateConfigFile(logger);
-        }
-
-        private static void CheckSystemActivation(ILogger logger) {
-            var name = DownloadFromDatabase(logger, "CustomerName");
-            var key = DownloadFromDatabase(logger, "ActivationKey");
-            var email = DownloadFromDatabase(logger, "Email");
-
-
-            if (name.Length > 0) {
-                if (!_customer.Equals(name)) {
-                    _customer = name;
-                    SendEmail("Customer name changed.", logger);
-                }
-
-                UpdateConfigFile(logger);
-            }
-
-            if (email.Length > 0) {
-                _email = email;
-            }
-
-            _systemIsActivated = CheckKey(name, key);
-            if (_systemIsActivated) {
-                LogInfo("[ MAIN ] --INF-- Key " + key + " for " + name + " is valid.", logger);
-            } else {
-                LogInfo("[ MAIN ] --INF-- Key " + key + "  for " + name + " is NOT valid.", logger);
-            }
-        }
-
-        private static void UpdateConfigFile(ILogger logger) {
-            var currentDirectory = Directory.GetCurrentDirectory();
-            const string configFile = "config.json";
-            const string backupConfigFile = "config.json.backup";
-            var outputPath = Path.Combine(currentDirectory, configFile);
-            var backupOutputPath = Path.Combine(currentDirectory, backupConfigFile);
-            var config = new Config {
-                Ipaddress = IpAddress, Port = Port, Database = Database, Login = Login, Password = Password, Customer = _customer, Email = _email, DownloadEvery = _downloadEvery,
-                DatabaseType = DatabaseType, CloseOnlyAutomaticIdles = CloseOnlyAutomaticIdles, AddCyclesToOrder = AddCyclesToOrder, SmtpClient = _smtpClient, SmtpPort = _smtpPort,
-                SmtpUsername = _smtpUsername,
-                SmtpPassword = _smtpPassword
-            };
-            var dataToWrite = JsonConvert.SerializeObject(config);
-            try {
-                File.WriteAllText(outputPath, dataToWrite);
-                LogInfo("[ MAIN ] --INF-- Config file created.", logger);
-                if (File.Exists(backupOutputPath)) {
-                    File.Delete(backupOutputPath);
-                }
-
-                File.Copy(outputPath, backupOutputPath);
-                LogInfo("[ MAIN ] --INF-- Backup config file updated", logger);
-            } catch (Exception error) {
-                LogError("[ MAIN ] --ERR-- Cannot create config file: " + error.Message, logger);
-            }
-        }
-
-        private static string DownloadFromDatabase(ILogger logger, string returnValue) {
-            if (DatabaseType.Equals("mysql")) {
-                var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
-                var selectQuery = $"select Value from zapsi2.sw_config where `Key` = '{returnValue}';";
-                var command = new MySqlCommand(selectQuery, connection);
-                try {
-                    connection.Open();
-                    var reader = command.ExecuteReader();
-                    while (reader.Read()) {
-                        returnValue = Convert.ToString(reader["Value"]);
-                    }
-
-                    reader.Close();
-                    reader.Dispose();
-                    connection.Close();
-                } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- Problem download value from database: " + error.Message + selectQuery, logger);
-                } finally {
-                    command.Dispose();
-                    connection.Dispose();
-                }
-            } else if (DatabaseType.Equals("sqlserver")) {
-                var connection = new SqlConnection {ConnectionString = $"Data Source={IpAddress}; Initial Catalog={Database}; User id={Login}; Password={Password};"};
-
-                var selectQuery = $"select Value from dbo.sw_config where [Key] = '{returnValue}';";
-                var command = new SqlCommand(selectQuery, connection);
-                try {
-                    connection.Open();
-                    var reader = command.ExecuteReader();
-                    while (reader.Read()) {
-                        returnValue = Convert.ToString(reader["Value"]);
-                    }
-
-                    reader.Close();
-                    reader.Dispose();
-                    connection.Close();
-                } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- Problem download value from database: " + error.Message + selectQuery, logger);
-                } finally {
-                    command.Dispose();
-                    connection.Dispose();
-                }
-            }
-
-            return returnValue;
-        }
-
-        private static bool CheckKey(string name, string key) {
-            var keyIsCorrect = false;
-            var hash = CreateMd5Hash(name);
-            hash = hash.Remove(0, 10);
-            hash = hash + "zapsi";
-            hash = CreateMd5Hash(hash);
-            if (hash.Equals(key)) {
-                keyIsCorrect = true;
-            }
-
-            return keyIsCorrect;
-        }
-
-        private static string CreateMd5Hash(string input) {
-            var md5 = MD5.Create();
-            var inputBytes = Encoding.ASCII.GetBytes(input);
-            var hashBytes = md5.ComputeHash(inputBytes);
-
-            var sb = new StringBuilder();
-            foreach (var t in hashBytes) {
-                sb.Append(t.ToString("X2"));
-            }
-
-            return sb.ToString();
-        }
 
         private static void CreateNewConfigRecord(string option, ILogger logger) {
             var key = "";
@@ -463,110 +309,56 @@ namespace zapsi_service_likov_terminal_special {
             }
 
 
-            if (DatabaseType.Equals("mysql")) {
-                var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            try {
+                connection.Open();
+                var command = connection.CreateCommand();
+                command.CommandText = $"INSERT INTO `zapsi2`.`sw_config` (`SoftID`, `Key`, `Value`, `Version`, `Note`) VALUES ('', '{option}', '{key}', '', '')";
                 try {
-                    connection.Open();
-                    var command = connection.CreateCommand();
-                    command.CommandText = $"INSERT INTO `zapsi2`.`sw_config` (`SoftID`, `Key`, `Value`, `Version`, `Note`) VALUES ('', '{option}', '{key}', '', '')";
-                    try {
-                        command.ExecuteNonQuery();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- problem inserting " + option + " into database: " + error.Message + command.CommandText, logger);
-                    } finally {
-                        command.Dispose();
-                    }
-
-                    connection.Close();
+                    command.ExecuteNonQuery();
                 } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
+                    LogError("[ MAIN ] --ERR-- problem inserting " + option + " into database: " + error.Message + command.CommandText, logger);
                 } finally {
-                    connection.Dispose();
+                    command.Dispose();
                 }
-            } else if (DatabaseType.Equals("sqlserver")) {
-                var connection = new SqlConnection {ConnectionString = $"Data Source={IpAddress}; Initial Catalog={Database}; User id={Login}; Password={Password};"};
-                try {
-                    connection.Open();
-                    var command = connection.CreateCommand();
-                    command.CommandText =
-                        $"INSERT INTO [dbo].[sw_config] ([SoftID], [Key], [Value], [Version], [Note]) VALUES (DEFAULT, '{option}', '{key}', DEFAULT, DEFAULT)";
-                    try {
-                        command.ExecuteNonQuery();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- problem inserting " + option + " into database: " + error.Message + command.CommandText, logger);
-                    } finally {
-                        command.Dispose();
-                    }
 
-                    connection.Close();
-                } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
-                } finally {
-                    connection.Dispose();
-                }
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
             }
         }
 
         private static IEnumerable<string> GetDataFromSwConfigTable(ILogger logger) {
             var swConfig = new List<string>();
-            if (DatabaseType.Equals("mysql")) {
-                var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            try {
+                connection.Open();
+                const string selectQuery = "select * from zapsi2.sw_config";
+                var command = new MySqlCommand(selectQuery, connection);
+
+
                 try {
-                    connection.Open();
-                    const string selectQuery = "select * from zapsi2.sw_config";
-                    var command = new MySqlCommand(selectQuery, connection);
-
-
-                    try {
-                        var reader = command.ExecuteReader();
-                        while (reader.Read()) {
-                            var keyData = reader["Key"].ToString();
-                            swConfig.Add(keyData);
-                        }
-
-                        reader.Close();
-                        reader.Dispose();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- Problem reading from database: " + error.Message + selectQuery, logger);
-                    } finally {
-                        command.Dispose();
+                    var reader = command.ExecuteReader();
+                    while (reader.Read()) {
+                        var keyData = reader["Key"].ToString();
+                        swConfig.Add(keyData);
                     }
 
-                    connection.Close();
+                    reader.Close();
+                    reader.Dispose();
                 } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
+                    LogError("[ MAIN ] --ERR-- Problem reading from database: " + error.Message + selectQuery, logger);
                 } finally {
-                    connection.Dispose();
+                    command.Dispose();
                 }
-            } else if (DatabaseType.Equals("sqlserver")) {
-                var connection = new SqlConnection {ConnectionString = $"Data Source={IpAddress}; Initial Catalog={Database}; User id={Login}; Password={Password};"};
-                try {
-                    connection.Open();
-                    var selectQuery = $"SELECT * FROM dbo.[sw_config]";
-                    var command = new SqlCommand(selectQuery, connection);
 
-
-                    try {
-                        var reader = command.ExecuteReader();
-                        while (reader.Read()) {
-                            var keyData = reader["Key"].ToString();
-                            swConfig.Add(keyData);
-                        }
-
-                        reader.Close();
-                        reader.Dispose();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- Problem reading from database: " + error.Message + selectQuery, logger);
-                    } finally {
-                        command.Dispose();
-                    }
-
-                    connection.Close();
-                } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
-                } finally {
-                    connection.Dispose();
-                }
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ MAIN ] --ERR-- problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
             }
 
             return swConfig;
@@ -608,60 +400,30 @@ namespace zapsi_service_likov_terminal_special {
         private static void CheckNumberOfActiveWorkplaces(ILogger logger) {
             var numberOfActivatedWorkplaces = 0;
 
-            if (DatabaseType.Equals("mysql")) {
-                var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            try {
+                connection.Open();
+                const string selectQuery = "SELECT count(oid) as count from zapsi2.workplace where DeviceID is not NULL limit 1";
+                var command = new MySqlCommand(selectQuery, connection);
                 try {
-                    connection.Open();
-                    const string selectQuery = "SELECT count(oid) as count from zapsi2.workplace where DeviceID is not NULL limit 1";
-                    var command = new MySqlCommand(selectQuery, connection);
-                    try {
-                        var reader = command.ExecuteReader();
-                        if (reader.Read()) {
-                            numberOfActivatedWorkplaces = Convert.ToInt32(reader["count"]);
-                        }
-
-                        reader.Close();
-                        reader.Dispose();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- Problem checking number of workplaces: " + error.Message + selectQuery, logger);
-                    } finally {
-                        command.Dispose();
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        numberOfActivatedWorkplaces = Convert.ToInt32(reader["count"]);
                     }
 
-                    connection.Close();
+                    reader.Close();
+                    reader.Dispose();
                 } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- Problem with database: " + error.Message, logger);
+                    LogError("[ MAIN ] --ERR-- Problem checking number of workplaces: " + error.Message + selectQuery, logger);
                 } finally {
-                    connection.Dispose();
+                    command.Dispose();
                 }
-            } else if (DatabaseType.Equals("sqlserver")) {
-                var connection = new SqlConnection {ConnectionString = $"Data Source={IpAddress}; Initial Catalog={Database}; User id={Login}; Password={Password};"};
 
-                try {
-                    connection.Open();
-
-                    var selectQuery = $"SELECT count(oid) as count from dbo.workplace where DeviceID is not NULL";
-                    var command = new SqlCommand(selectQuery, connection);
-                    try {
-                        var reader = command.ExecuteReader();
-                        if (reader.Read()) {
-                            numberOfActivatedWorkplaces = Convert.ToInt32(reader["count"]);
-                        }
-
-                        reader.Close();
-                        reader.Dispose();
-                    } catch (Exception error) {
-                        LogError("[ MAIN ] --ERR-- Problem checking number of workplaces: " + error.Message + selectQuery, logger);
-                    } finally {
-                        command.Dispose();
-                    }
-
-                    connection.Close();
-                } catch (Exception error) {
-                    LogError("[ MAIN ] --ERR-- Problem with database: " + error.Message, logger);
-                } finally {
-                    connection.Dispose();
-                }
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ MAIN ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
             }
 
             if (_numberOfRunningWorkplaces != numberOfActivatedWorkplaces) {
@@ -691,32 +453,17 @@ namespace zapsi_service_likov_terminal_special {
         }
 
         private static void CheckDatabaseConnection(ILogger logger) {
-            if (DatabaseType.Equals("mysql")) {
-                var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
-                try {
-                    connection.Open();
-                    _databaseIsOnline = true;
-                    LogInfo("[ MAIN ] --INF-- Database is available", logger);
-                    connection.Close();
-                } catch (Exception error) {
-                    _databaseIsOnline = false;
-                    LogError("[ MAIN ] --ERR-- Database is unavailable " + error.Message, logger);
-                } finally {
-                    connection.Dispose();
-                }
-            } else if (DatabaseType.Equals("sqlserver")) {
-                var connection = new SqlConnection {ConnectionString = $"Data Source={IpAddress}; Initial Catalog={Database}; User id={Login}; Password={Password};"};
-                try {
-                    connection.Open();
-                    _databaseIsOnline = true;
-                    LogInfo("[ MAIN ] --INF-- Database is available", logger);
-                    connection.Close();
-                } catch (Exception error) {
-                    _databaseIsOnline = false;
-                    LogError("[ MAIN ] --ERR-- Database is unavailable " + error.Message, logger);
-                } finally {
-                    connection.Dispose();
-                }
+            var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
+            try {
+                connection.Open();
+                _databaseIsOnline = true;
+                LogInfo("[ MAIN ] --INF-- Database is available", logger);
+                connection.Close();
+            } catch (Exception error) {
+                _databaseIsOnline = false;
+                LogError("[ MAIN ] --ERR-- Database is unavailable " + error.Message, logger);
+            } finally {
+                connection.Dispose();
             }
 
             if (!_databaseIsOnline && !_databaseOfflineEmailWasSent) {
