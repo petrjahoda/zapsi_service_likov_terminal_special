@@ -840,20 +840,22 @@ namespace zapsi_service_likov_terminal_special {
             }
         }
 
-        public DateTime GetProductionDateTimeFor(ILogger logger) {
+        public DateTime GetProductionDateTimeFor(DateTime orderStartDateTime, ILogger logger) {
+            var orderDateTime = Convert.ToDateTime(string.Format("{0:yyyy-MM-dd HH:mm:ss.fff}", orderStartDateTime));
             var productionDateTime = DateTime.Now;
             var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
                 connection.Open();
-                var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTE is null";
+                var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTS >= {orderDateTime} order by DTS desc limit 1";
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
                         productionDateTime = Convert.ToDateTime(string.Format("{0:yyyy-MM-dd HH:mm:ss.fff}", reader["DTS"]));
                         LogInfo("[ " + Name + " ] --INF-- Last state DTS: " + productionDateTime.ToString(CultureInfo.InvariantCulture), logger);
+                    } else {
+                        productionDateTime = orderStartDateTime;
                     }
-
                     reader.Close();
                     reader.Dispose();
                 } catch (Exception error) {

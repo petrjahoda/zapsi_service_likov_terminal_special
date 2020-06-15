@@ -155,8 +155,8 @@ namespace zapsi_service_likov_terminal_special {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 2", logger);
                             if (workplace.IsInProduction(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace is in production", logger);
-                                var productionDateTime = workplace.GetProductionDateTimeFor(logger);
                                 var orderStartDateTime = workplace.GetOrderStartDateTimeFor(logger);
+                                var productionDateTime = workplace.GetProductionDateTimeFor(orderStartDateTime, logger);
                                 DateTime dateTimeToInsert;
                                 if (orderStartDateTime > productionDateTime) {
                                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Order start date is newer: " + orderStartDateTime.ToString(CultureInfo.InvariantCulture), logger);
@@ -174,8 +174,8 @@ namespace zapsi_service_likov_terminal_special {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production for more than 10 minutes", logger);
                                 if (workplace.HasOpenOrderForMoreThanTenMinutes(logger)) {
                                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace has open order for more than 10 minutes", logger);
-                                    var productionDateTime = workplace.GetProductionDateTimeFor(logger);
                                     var orderStartDateTime = workplace.GetOrderStartDateTimeFor(logger);
+                                    var productionDateTime = workplace.GetProductionDateTimeFor(orderStartDateTime, logger);
                                     DateTime dateTimeToInsert;
                                     if (orderStartDateTime > productionDateTime) {
                                         LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Order start date is newer: " + orderStartDateTime.ToString(CultureInfo.InvariantCulture), logger);
