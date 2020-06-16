@@ -846,13 +846,13 @@ namespace zapsi_service_likov_terminal_special {
             var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
                 connection.Open();
-                var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTS >= {orderDateTime} order by DTS desc limit 1";
+                var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTS >= '{orderDateTime}' order by DTS asc limit 1";
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
                         productionDateTime = Convert.ToDateTime(string.Format("{0:yyyy-MM-dd HH:mm:ss.fff}", reader["DTS"]));
-                        LogInfo("[ " + Name + " ] --INF-- Last state DTS: " + productionDateTime.ToString(CultureInfo.InvariantCulture), logger);
+                        LogInfo("[ " + Name + " ] --INF-- Last state DTS: " + productionDateTime.ToString(CultureInfo.InvariantCulture + " for: " + command.CommandText), logger);
                     } else {
                         productionDateTime = orderStartDateTime;
                     }
