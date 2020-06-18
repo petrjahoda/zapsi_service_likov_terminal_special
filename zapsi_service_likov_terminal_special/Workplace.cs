@@ -114,12 +114,7 @@ namespace zapsi_service_likov_terminal_special {
         }
 
         public void CloseOrderForWorkplace(DateTime closingDateForOrder, bool closeUserLogin, ILogger logger) {
-            var myDate = string.Format("{0:yyyy-MM-dd HH:mm:ss}", LastStateDateTime);
             var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", closingDateForOrder);
-            if (LastStateDateTime.CompareTo(closingDateForOrder) > 0) {
-                dateToInsert = myDate;
-            }
-
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             var count = 0;
@@ -131,8 +126,7 @@ namespace zapsi_service_likov_terminal_special {
                 if (closeUserLogin) {
                     LogInfo("[ " + Name + " ] --INF-- Closing order and login", logger);
                     command.CommandText =
-                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};" +
-                        $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
+                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
                 } else {
                     LogInfo("[ " + Name + " ] --INF-- Closing order", logger);
                     command.CommandText =
@@ -518,6 +512,7 @@ namespace zapsi_service_likov_terminal_special {
                     $"INSERT INTO `zapsi2`.`terminal_input_order` (`DTS`, `DTE`, `OrderID`, `UserID`, `DeviceID`, `Interval`, `Count`, `Fail`, `AverageCycle`, `WorkerCount`, `WorkplaceModeID`, `Note`, `WorkshiftID`) " +
                     $"VALUES ('{dateToInsert}', NULL, {orderId}, {userToInsert}, {DeviceOid}, 0, DEFAULT, DEFAULT, DEFAULT, DEFAULT, {workplaceModeId}, 'NULL', {ActualWorkshiftId})";
                 try {
+                    LogInfo("[ " + Name + " ] --INF-- " + command.CommandText, logger);
                     command.ExecuteNonQuery();
                 } catch (Exception error) {
                     LogError("[ MAIN ] --ERR-- problem inserting terminal input order into database: " + error.Message + command.CommandText, logger);
@@ -720,7 +715,6 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
-
             if (thereIsOpenOrder && (DateTime.Now - OrderStartDate).TotalMinutes > 15) {
                 LogInfo($"[ {Name} ] --INF-- Order started before 15 minutes shift end interval", logger);
                 workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = true;
@@ -818,7 +812,7 @@ namespace zapsi_service_likov_terminal_special {
             try {
                 connection.Open();
                 var command = connection.CreateCommand();
-                LogInfo("[ " + Name + " ] --INF-- Closing order and login", logger);
+                LogInfo("[ " + Name + " ] --INF-- Closing only login", logger);
                 command.CommandText =
                     $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
 
@@ -925,8 +919,7 @@ namespace zapsi_service_likov_terminal_special {
                 if (closeUserLogin) {
                     LogInfo("[ " + Name + " ] --INF-- Closing order and login", logger);
                     command.CommandText =
-                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};" +
-                        $"UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
+                        $"UPDATE `zapsi2`.`terminal_input_order` t SET t.`DTE` = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)), t.`Count`={count}, t.Fail={nokCount}, t.averageCycle={averageCycleAsString} WHERE t.`DTE` is NULL and DeviceID={DeviceOid};UPDATE zapsi2.terminal_input_login t set t.DTE = '{dateToInsert}', t.Interval = TIME_TO_SEC(timediff('{dateToInsert}', DTS)) where t.DTE is null and t.DeviceId={DeviceOid};";
                 } else {
                     LogInfo("[ " + Name + " ] --INF-- Closing order", logger);
                     command.CommandText =
