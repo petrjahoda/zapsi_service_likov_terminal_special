@@ -715,6 +715,7 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             if (thereIsOpenOrder && (DateTime.Now - OrderStartDate).TotalMinutes > 15) {
                 LogInfo($"[ {Name} ] --INF-- Order started before 15 minutes shift end interval", logger);
                 workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = true;
@@ -835,21 +836,23 @@ namespace zapsi_service_likov_terminal_special {
         }
 
         public DateTime GetProductionDateTimeFor(DateTime orderStartDateTime, ILogger logger) {
-            var orderDateTime = Convert.ToDateTime(string.Format("{0:yyyy-MM-dd HH:mm:ss.fff}", orderStartDateTime));
+            var orderDateTime = string.Format("{0:yyyy-MM-dd HH:mm:ss.fff}", orderStartDateTime);
             var productionDateTime = DateTime.Now;
             var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
                 connection.Open();
                 var selectQuery = $"SELECT * from zapsi2.workplace_state where WorkplaceID={Oid} and DTS >= '{orderDateTime}' order by DTS asc limit 1";
                 var command = new MySqlCommand(selectQuery, connection);
+                LogInfo("[ " + Name + " ] --INF-- " + command.CommandText, logger);
                 try {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
-                        productionDateTime = Convert.ToDateTime(string.Format("{0:yyyy-MM-dd HH:mm:ss.fff}", reader["DTS"]));
+                        productionDateTime = Convert.ToDateTime(reader["DTS"]);
                         LogInfo("[ " + Name + " ] --INF-- Last state DTS: " + productionDateTime.ToString(CultureInfo.InvariantCulture + " for: " + command.CommandText), logger);
                     } else {
                         productionDateTime = orderStartDateTime;
                     }
+
                     reader.Close();
                     reader.Dispose();
                 } catch (Exception error) {
