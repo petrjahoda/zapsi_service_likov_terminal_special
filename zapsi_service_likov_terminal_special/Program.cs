@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -56,7 +54,7 @@ namespace zapsi_service_likov_terminal_special {
         public static string CloseOnlyAutomaticIdles;
         public static string AddCyclesToOrder;
 
-        static void Main(string[] args) {
+        static void Main() {
             _systemIsActivated = false;
             PrintSoftwareLogo();
             var outputPath = CreateLogFileIfNotExists("0-main.txt");
@@ -155,18 +153,7 @@ namespace zapsi_service_likov_terminal_special {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 2", logger);
                             if (workplace.IsInProduction(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace is in production", logger);
-                                var orderStartDateTime = workplace.GetOrderStartDateTimeFor(logger);
-                                var productionDateTime = workplace.GetProductionDateTimeFor(orderStartDateTime, logger);
-                                DateTime dateTimeToInsert;
-                                if (orderStartDateTime > productionDateTime) {
-                                    LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Order start date is newer: " + orderStartDateTime.ToString(CultureInfo.InvariantCulture), logger);
-                                    dateTimeToInsert = orderStartDateTime;
-                                } else {
-                                    LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Production start date is newer: " + productionDateTime.ToString(CultureInfo.InvariantCulture), logger);
-                                    dateTimeToInsert = productionDateTime;
-                                }
-
-                                workplace.CloseAndStartOrderForWorkplaceAt(dateTimeToInsert, logger);
+                                workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
                             }
                         } else if (workplace.WorkplaceDivisionId == 3) {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 3", logger);
@@ -174,18 +161,7 @@ namespace zapsi_service_likov_terminal_special {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production for more than 10 minutes", logger);
                                 if (workplace.HasOpenOrderForMoreThanTenMinutes(logger)) {
                                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace has open order for more than 10 minutes", logger);
-                                    var orderStartDateTime = workplace.GetOrderStartDateTimeFor(logger);
-                                    var productionDateTime = workplace.GetProductionDateTimeFor(orderStartDateTime, logger);
-                                    DateTime dateTimeToInsert;
-                                    if (orderStartDateTime > productionDateTime) {
-                                        LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Order start date is newer: " + orderStartDateTime.ToString(CultureInfo.InvariantCulture), logger);
-                                        dateTimeToInsert = orderStartDateTime.AddMinutes(10.0);
-                                    } else {
-                                        LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Production start date is newer: " + productionDateTime.ToString(CultureInfo.InvariantCulture), logger);
-                                        dateTimeToInsert = productionDateTime.AddMinutes(10.0);
-                                    }
-
-                                    workplace.CloseAndStartOrderForWorkplaceAt(dateTimeToInsert, logger);
+                                    workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
                                 }
                             }
                         }
