@@ -16,7 +16,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2020.2.3.8";
+        private const string BuildDate = "2020.3.1.21";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
 

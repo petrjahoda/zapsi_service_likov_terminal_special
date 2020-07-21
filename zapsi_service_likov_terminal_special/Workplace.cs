@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using MySql.Data.MySqlClient;
@@ -454,14 +455,107 @@ namespace zapsi_service_likov_terminal_special {
         public void CloseAndStartOrderForWorkplaceAt(DateTime closeAndStartOrderDateTime, ILogger logger) {
             var orderId = GetOrderId(logger);
             var userId = GetUserId(logger);
+            var actualOpenTerminalInputOrder = GetTerminalInputOrderId(logger);
+            var users = GetUsersForTerminalInputOrderId(actualOpenTerminalInputOrder, logger);
 
             var anyOrderisOpen = orderId != 0;
             if (anyOrderisOpen) {
                 CloseOrderForWorkplace(closeAndStartOrderDateTime, false, logger);
                 LogInfo($"[ {Name} ] --INF-- Order closed, with ID {orderId} and user ID {userId} and datetime " + closeAndStartOrderDateTime.ToString(CultureInfo.InvariantCulture), logger);
                 CreateOrderForWorkplace(closeAndStartOrderDateTime, orderId, userId, 1, logger);
-                LogInfo("[ " + Name + " ] --INF-- New order opened", logger);
+                LogInfo("[ " + Name + " ] --INF-- New order opened, updating terminal input order user", logger);
+                actualOpenTerminalInputOrder = GetTerminalInputOrderId(logger);
+                UpdateTerminalInputOrderUser(actualOpenTerminalInputOrder, users, logger);
+                LogInfo("[ " + Name + " ] --INF-- Terminal input order user updated", logger);
             }
+        }
+
+        private void UpdateTerminalInputOrderUser(int actualOpenTerminalInputOrder, List<int> users, ILogger logger) {
+            var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var command = connection.CreateCommand();
+                foreach (var user in users) {
+                    command.CommandText = $"INSERT INTO `zapsi2`.`terminal_input_order_user` (`TerminalInputOrderID`, `UserID`) VALUES ({actualOpenTerminalInputOrder}, {user})";
+                    try {
+                        LogInfo("[ " + Name + " ] --INF-- " + command.CommandText, logger);
+                        command.ExecuteNonQuery();
+                    } catch (Exception error) {
+                        LogError("[ MAIN ] --ERR-- problem inserting terminal input order user into database: " + error.Message + command.CommandText, logger);
+                    } finally {
+                        command.Dispose();
+                    }
+                }
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+        }
+
+        private List<int> GetUsersForTerminalInputOrderId(int terminalInputOrderId, ILogger logger) {
+            var users = new List<int>();
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * FROM terminal_input_order_user WHERE TerminalInputOrderID = {terminalInputOrderId}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    while (reader.Read()) {
+                        users.Add(Convert.ToInt32(reader["UserID"]));
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active terminal input order user: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            return users;
+        }
+
+        private int GetTerminalInputOrderId(ILogger logger) {
+            var actualTerminalInputOrderId = 0;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DeviceID={DeviceOid} and DTE is null limit 1";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        actualTerminalInputOrderId = Convert.ToInt32(reader["OID"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active terminal input order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            return actualTerminalInputOrderId;
         }
 
         private int GetUserId(ILogger logger) {
