@@ -30,6 +30,7 @@ namespace zapsi_service_likov_terminal_special {
         public int? OrderUserId { get; set; }
         public StateType ActualStateType { get; set; }
         public int WorkplaceIdleId { get; set; }
+        public string Code  { get; set; }
 
         public Workplace() {
             Oid = Oid;
