@@ -205,7 +205,7 @@ namespace zapsi_service_likov_terminal_special {
                                                    "<note/>" +
                                                    "</ZAPSIoperation>" +
                                                    "</ZAPSIoperations>";
-                                    SendXml(NavUrl, orderData);
+                                    SendXml(NavUrl, userData);
                                 }
 
                                 workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
@@ -265,7 +265,7 @@ namespace zapsi_service_likov_terminal_special {
                                                        "<note/>" +
                                                        "</ZAPSIoperation>" +
                                                        "</ZAPSIoperations>";
-                                        SendXml(NavUrl, orderData);
+                                        SendXml(NavUrl, userData);
                                     }
 
                                     workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
