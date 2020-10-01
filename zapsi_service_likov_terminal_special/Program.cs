@@ -156,8 +156,8 @@ namespace zapsi_service_likov_terminal_special {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 2", logger);
                             if (workplace.IsInProduction(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace is in production", logger);
-                                var actualOrderId = GetOrderIdFor(workplace, logger);
                                 var userId = GetUserIdFor(workplace, logger);
+                                var actualOrderId = GetOrderIdFor(workplace, logger);
                                 var orderNo = GetOrderNo(workplace, actualOrderId, logger);
                                 var operationNo = GetOperationNo(workplace, actualOrderId, logger);
                                 var workcenter = GetWorkcenter(workplace, userId, logger);
@@ -274,23 +274,29 @@ namespace zapsi_service_likov_terminal_special {
                         }
                     }
 
-                    string SendXml(string destinationUrl, string requestXml) {
+                    bool SendXml(string destinationUrl, string requestXml) {
+                        LogDeviceInfo($"[ {workplace.Name} ] --INF-- Sending XML", logger);
                         HttpWebRequest request = (HttpWebRequest) WebRequest.Create(destinationUrl);
                         byte[] bytes = Encoding.UTF8.GetBytes(requestXml);
                         request.ContentType = "application/x-www-form-urlencoded";
                         request.ContentLength = bytes.Length;
                         request.Method = "POST";
-                        Stream requestStream = request.GetRequestStream();
-                        requestStream.Write(bytes, 0, bytes.Length);
-                        HttpWebResponse response;
-                        response = (HttpWebResponse) request.GetResponse();
-                        if (response.StatusCode == HttpStatusCode.OK) {
-                            Stream responseStream = response.GetResponseStream();
-                            string responseStr = new StreamReader(responseStream).ReadToEnd();
-                            return responseStr;
-                        }
+                        try {
+                            Stream requestStream = request.GetRequestStream();
+                            requestStream.Write(bytes, 0, bytes.Length);
+                            HttpWebResponse response;
+                            response = (HttpWebResponse) request.GetResponse();
+                            if (response.StatusCode == HttpStatusCode.OK) {
+                                LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML sent OK", logger);
+                                return true;
 
-                        return null;
+                            }
+                            LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
+                            return false;
+                        } catch {
+                            LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
+                            return false;
+                        }
                     }
 
                     LogDeviceInfo($"[ {workplace.Name} ] --INF-- Close open orders: " + closeOpenOrders, logger);
