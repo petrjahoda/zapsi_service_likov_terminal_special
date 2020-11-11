@@ -18,7 +18,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2020.3.1.21";
+        private const string BuildDate = "2020.4.2.11";
         private const string NavUrl = "http://localhost:8000/send";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
@@ -175,7 +175,7 @@ namespace zapsi_service_likov_terminal_special {
                                                 "<machinecenter>" + workplace.Code + "</machinecenter>" +
                                                 "<operationtype>Technology</operationtype>" +
                                                 "<initiator>True</initiator>" +
-                                                "<startdate>" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + "</startdate>" +
+                                                "<startdate>" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + ".000</startdate>" +
                                                 "<enddate/>" +
                                                 "<consofmeters>" + consOfMeters + "</consofmeters>" +
                                                 "<motorhours>" + motorHours + "</motorhours>" +
@@ -197,7 +197,7 @@ namespace zapsi_service_likov_terminal_special {
                                                    "<machinecenter>" + workplace.Code + "</machinecenter>" +
                                                    "<operationtype>Production</operationtype>" +
                                                    "<initiator>True</initiator>" +
-                                                   "<startdate>DateTime.Now.ToString(CultureInfo.InvariantCulture) + </startdate>" +
+                                                   "<startdate>"+ DateTime.Now.ToString(CultureInfo.InvariantCulture) + ".000</startdate>" +
                                                    "<enddate/>" +
                                                    "<consofmeters/>" +
                                                    "<motorhours/>" +
@@ -235,7 +235,7 @@ namespace zapsi_service_likov_terminal_special {
                                                     "<machinecenter>" + workplace.Code + "</machinecenter>" +
                                                     "<operationtype>Technology</operationtype>" +
                                                     "<initiator>True</initiator>" +
-                                                    "<startdate>" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + "</startdate>" +
+                                                    "<startdate>" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + ".000</startdate>" +
                                                     "<enddate/>" +
                                                     "<consofmeters>" + consOfMeters + "</consofmeters>" +
                                                     "<motorhours>" + motorHours + "</motorhours>" +
@@ -257,7 +257,7 @@ namespace zapsi_service_likov_terminal_special {
                                                        "<machinecenter>" + workplace.Code + "</machinecenter>" +
                                                        "<operationtype>Production</operationtype>" +
                                                        "<initiator>True</initiator>" +
-                                                       "<startdate>DateTime.Now.ToString(CultureInfo.InvariantCulture) + </startdate>" +
+                                                       "<startdate>" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + ".000</startdate>" +
                                                        "<enddate/>" +
                                                        "<consofmeters/>" +
                                                        "<motorhours/>" +
@@ -366,7 +366,7 @@ namespace zapsi_service_likov_terminal_special {
         }
 
         private static string GetConsOfMetersFor(Workplace workplace, ILogger logger) {
-            var consOfMeters = "";
+            var consOfMeters = 0;
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
@@ -377,7 +377,7 @@ namespace zapsi_service_likov_terminal_special {
                 try {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
-                        consOfMeters = Convert.ToString(reader["result"]);
+                        consOfMeters = Convert.ToInt32(reader["result"]);
                     }
 
                     reader.Close();
@@ -397,11 +397,11 @@ namespace zapsi_service_likov_terminal_special {
 
             LogInfo("[ " + workplace.Name + " ] --INF-- Open order cons of meters: " + consOfMeters, logger);
 
-            return consOfMeters;
+            return consOfMeters.ToString();
         }
 
         private static string GetMotorHoursFor(Workplace workplace, ILogger logger) {
-            var cuts = 0.0;
+            var cuts = 0;
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
@@ -411,7 +411,7 @@ namespace zapsi_service_likov_terminal_special {
                 try {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
-                        cuts = Convert.ToDouble(reader["Interval"]);
+                        cuts = Convert.ToInt32(reader["Interval"]);
                     }
 
                     cuts /= 3600;
