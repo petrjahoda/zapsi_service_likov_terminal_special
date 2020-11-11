@@ -164,7 +164,7 @@ namespace zapsi_service_likov_terminal_special {
                                 var consOfMeters = GetConsOfMetersFor(workplace, logger);
                                 var motorHours = GetMotorHoursFor(workplace, logger);
                                 var cuts = GetCutsFor(workplace, logger);
-
+                                var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                                 var orderData = "xml=" +
                                                 "<ZAPSIoperations>" +
                                                 "<ZAPSIoperation>" +
@@ -175,7 +175,7 @@ namespace zapsi_service_likov_terminal_special {
                                                 "<machinecenter>" + workplace.Code + "</machinecenter>" +
                                                 "<operationtype>Technology</operationtype>" +
                                                 "<initiator>True</initiator>" +
-                                                "<startdate>" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + ".000</startdate>" +
+                                                "<startdate>" + time + ".000</startdate>" +
                                                 "<enddate/>" +
                                                 "<consofmeters>" + consOfMeters + "</consofmeters>" +
                                                 "<motorhours>" + motorHours + "</motorhours>" +
@@ -197,7 +197,7 @@ namespace zapsi_service_likov_terminal_special {
                                                    "<machinecenter>" + workplace.Code + "</machinecenter>" +
                                                    "<operationtype>Production</operationtype>" +
                                                    "<initiator>True</initiator>" +
-                                                   "<startdate>"+ DateTime.Now.ToString(CultureInfo.InvariantCulture) + ".000</startdate>" +
+                                                   "<startdate>"+ time + ".000</startdate>" +
                                                    "<enddate/>" +
                                                    "<consofmeters/>" +
                                                    "<motorhours/>" +
@@ -224,7 +224,7 @@ namespace zapsi_service_likov_terminal_special {
                                     var consOfMeters = GetConsOfMetersFor(workplace, logger);
                                     var motorHours = GetMotorHoursFor(workplace, logger);
                                     var cuts = GetCutsFor(workplace, logger);
-
+                                    var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); 
                                     var orderData = "xml=" +
                                                     "<ZAPSIoperations>" +
                                                     "<ZAPSIoperation>" +
@@ -235,7 +235,7 @@ namespace zapsi_service_likov_terminal_special {
                                                     "<machinecenter>" + workplace.Code + "</machinecenter>" +
                                                     "<operationtype>Technology</operationtype>" +
                                                     "<initiator>True</initiator>" +
-                                                    "<startdate>" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + ".000</startdate>" +
+                                                    "<startdate>" + time + ".000</startdate>" +
                                                     "<enddate/>" +
                                                     "<consofmeters>" + consOfMeters + "</consofmeters>" +
                                                     "<motorhours>" + motorHours + "</motorhours>" +
@@ -257,7 +257,7 @@ namespace zapsi_service_likov_terminal_special {
                                                        "<machinecenter>" + workplace.Code + "</machinecenter>" +
                                                        "<operationtype>Production</operationtype>" +
                                                        "<initiator>True</initiator>" +
-                                                       "<startdate>" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + ".000</startdate>" +
+                                                       "<startdate>" + time + ".000</startdate>" +
                                                        "<enddate/>" +
                                                        "<consofmeters/>" +
                                                        "<motorhours/>" +
