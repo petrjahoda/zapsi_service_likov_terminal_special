@@ -156,11 +156,10 @@ namespace zapsi_service_likov_terminal_special {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 2", logger);
                             if (workplace.IsInProduction(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace is in production", logger);
-                                var userId = GetUserIdFor(workplace, logger);
+                                var userLogin = GetUserLoginFor(workplace, logger);
                                 var actualOrderId = GetOrderIdFor(workplace, logger);
                                 var orderNo = GetOrderNo(workplace, actualOrderId, logger);
                                 var operationNo = GetOperationNo(workplace, actualOrderId, logger);
-                                var workcenter = GetWorkcenter(workplace, userId, logger);
                                 var consOfMeters = GetConsOfMetersFor(workplace, logger);
                                 var motorHours = GetMotorHoursFor(workplace, logger);
                                 var cuts = GetCutsFor(workplace, logger);
@@ -171,8 +170,8 @@ namespace zapsi_service_likov_terminal_special {
                                                 "<type>AL</type>" +
                                                 "<orderno>" + orderNo + "</orderno>" +
                                                 "<operationno>" + operationNo + "</operationno>" +
-                                                "<workcenter>" + workcenter + "</workcenter>" +
-                                                "<machinecenter>" + workplace.Code + "</machinecenter>" +
+                                                "<workcenter>" + workplace.Code + "</workcenter>" +
+                                                "<machinecenter>" + userLogin + "</machinecenter>" +
                                                 "<operationtype>Technology</operationtype>" +
                                                 "<initiator>True</initiator>" +
                                                 "<startdate>" + time + ".000</startdate>" +
@@ -186,15 +185,14 @@ namespace zapsi_service_likov_terminal_special {
                                 SendXml(NavUrl, orderData);
                                 var listOfUsers = GetAdditionalUsersFor(workplace, logger);
                                 foreach (var actualUserId in listOfUsers) {
-                                    workcenter = GetWorkcenter(workplace, actualUserId, logger);
                                     var userData = "xml=" +
                                                    "<ZAPSIoperations>" +
                                                    "<ZAPSIoperation>" +
                                                    "<type>AL</type>" +
                                                    "<orderno>" + orderNo + "</orderno>" +
                                                    "<operationno>" + operationNo + "</operationno>" +
-                                                   "<workcenter>" + workcenter + "</workcenter>" +
-                                                   "<machinecenter>" + workplace.Code + "</machinecenter>" +
+                                                   "<workcenter>" + workplace.Code + "</workcenter>" +
+                                                   "<machinecenter>" + userLogin + "</machinecenter>" +
                                                    "<operationtype>Production</operationtype>" +
                                                    "<initiator>True</initiator>" +
                                                    "<startdate>"+ time + ".000</startdate>" +
@@ -217,10 +215,9 @@ namespace zapsi_service_likov_terminal_special {
                                 if (workplace.HasOpenOrderForMoreThanTenMinutes(logger)) {
                                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace has open order for more than 10 minutes", logger);
                                     var actualOrderId = GetOrderIdFor(workplace, logger);
-                                    var userId = GetUserIdFor(workplace, logger);
+                                    var userLogin = GetUserLoginFor(workplace, logger);
                                     var orderNo = GetOrderNo(workplace, actualOrderId, logger);
                                     var operationNo = GetOperationNo(workplace, actualOrderId, logger);
-                                    var workcenter = GetWorkcenter(workplace, userId, logger);
                                     var consOfMeters = GetConsOfMetersFor(workplace, logger);
                                     var motorHours = GetMotorHoursFor(workplace, logger);
                                     var cuts = GetCutsFor(workplace, logger);
@@ -231,8 +228,8 @@ namespace zapsi_service_likov_terminal_special {
                                                     "<type>AL</type>" +
                                                     "<orderno>" + orderNo + "</orderno>" +
                                                     "<operationno>" + operationNo + "</operationno>" +
-                                                    "<workcenter>" + workcenter + "</workcenter>" +
-                                                    "<machinecenter>" + workplace.Code + "</machinecenter>" +
+                                                    "<workcenter>" + workplace.Code + "</workcenter>" +
+                                                    "<machinecenter>" + userLogin + "</machinecenter>" +
                                                     "<operationtype>Technology</operationtype>" +
                                                     "<initiator>True</initiator>" +
                                                     "<startdate>" + time + ".000</startdate>" +
@@ -246,15 +243,14 @@ namespace zapsi_service_likov_terminal_special {
                                     SendXml(NavUrl, orderData);
                                     var listOfUsers = GetAdditionalUsersFor(workplace, logger);
                                     foreach (var actualUserId in listOfUsers) {
-                                        workcenter = GetWorkcenter(workplace, actualUserId, logger);
                                         var userData = "xml=" +
                                                        "<ZAPSIoperations>" +
                                                        "<ZAPSIoperation>" +
                                                        "<type>AL</type>" +
                                                        "<orderno>" + orderNo + "</orderno>" +
                                                        "<operationno>" + operationNo + "</operationno>" +
-                                                       "<workcenter>" + workcenter + "</workcenter>" +
-                                                       "<machinecenter>" + workplace.Code + "</machinecenter>" +
+                                                       "<workcenter>" + workplace.Code + "</workcenter>" +
+                                                       "<machinecenter>" + userLogin + "</machinecenter>" +
                                                        "<operationtype>Production</operationtype>" +
                                                        "<initiator>True</initiator>" +
                                                        "<startdate>" + time + ".000</startdate>" +
@@ -469,8 +465,8 @@ namespace zapsi_service_likov_terminal_special {
             return cuts;
         }
 
-        private static int GetUserIdFor(Workplace workplace, ILogger logger) {
-            var userId = 1;
+        private static string GetUserLoginFor(Workplace workplace, ILogger logger) {
+            var userLogin = "";
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
@@ -480,7 +476,7 @@ namespace zapsi_service_likov_terminal_special {
                 try {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
-                        userId = Convert.ToInt32(reader["UserID"]);
+                        userLogin = Convert.ToString(reader["Login"]);
                     }
 
                     reader.Close();
@@ -498,9 +494,9 @@ namespace zapsi_service_likov_terminal_special {
                 connection.Dispose();
             }
 
-            LogInfo("[ " + workplace.Name + " ] --INF-- Open order has userId: " + userId, logger);
+            LogInfo("[ " + workplace.Name + " ] --INF-- Open order has userId: " + userLogin, logger);
 
-            return userId;
+            return userLogin;
         }
 
         private static string GetWorkcenter(Workplace workplace, int userId, ILogger logger) {

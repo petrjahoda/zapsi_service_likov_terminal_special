@@ -13,6 +13,9 @@
         "packagesPath": "/Users/petrjahoda/.nuget/packages/",
         "outputPath": "/Users/petrjahoda/RiderProjects/zapsi_service_likov_terminal_special/zapsi_service_likov_terminal_special/obj/",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "/usr/local/share/dotnet/sdk/NuGetFallbackFolder"
+        ],
         "configFilePaths": [
           "/Users/petrjahoda/.nuget/NuGet/NuGet.Config"
         ],
@@ -76,6 +79,11 @@
           ],
           "assetTargetFallback": true,
           "warn": true
+        }
+      },
+      "runtimes": {
+        "win-x64": {
+          "#import": []
         }
       }
     }
