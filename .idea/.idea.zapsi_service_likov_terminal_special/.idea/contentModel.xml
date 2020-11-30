@@ -81,13 +81,11 @@
           <e p="Serilog.Sinks.Async.dll" t="Include" />
           <e p="Serilog.Sinks.File.dll" t="Include" />
           <e p="Serilog.Sinks.RollingFile.dll" t="Include" />
-          <e p="sni.dll" t="Include" />
           <e p="System.Data.SqlClient.dll" t="Include" />
           <e p="System.Runtime.CompilerServices.Unsafe.dll" t="Include" />
           <e p="System.Text.Encoding.CodePages.dll" t="Include" />
           <e p="zapsi_service_likov_terminal_special.deps.json" t="Include" />
           <e p="zapsi_service_likov_terminal_special.dll" t="Include" />
-          <e p="zapsi_service_likov_terminal_special.exe" t="Include" />
           <e p="zapsi_service_likov_terminal_special.pdb" t="Include" />
           <e p="zapsi_service_likov_terminal_special.runtimeconfig.json" t="Include" />
         </e>

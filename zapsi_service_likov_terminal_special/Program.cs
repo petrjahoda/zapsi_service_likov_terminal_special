@@ -184,7 +184,7 @@ namespace zapsi_service_likov_terminal_special {
                                                 "</ZAPSIoperations>";
                                 SendXml(NavUrl, orderData);
                                 var listOfUsers = GetAdditionalUsersFor(workplace, logger);
-                                foreach (var actualUserId in listOfUsers) {
+                                foreach (var actualUserLogin in listOfUsers) {
                                     var userData = "xml=" +
                                                    "<ZAPSIoperations>" +
                                                    "<ZAPSIoperation>" +
@@ -192,7 +192,7 @@ namespace zapsi_service_likov_terminal_special {
                                                    "<orderno>" + orderNo + "</orderno>" +
                                                    "<operationno>" + operationNo + "</operationno>" +
                                                    "<workcenter>" + workplace.Code + "</workcenter>" +
-                                                   "<machinecenter>" + userLogin + "</machinecenter>" +
+                                                   "<machinecenter>" + actualUserLogin + "</machinecenter>" +
                                                    "<operationtype>Production</operationtype>" +
                                                    "<initiator>True</initiator>" +
                                                    "<startdate>"+ time + ".000</startdate>" +
@@ -242,7 +242,7 @@ namespace zapsi_service_likov_terminal_special {
                                                     "</ZAPSIoperations>";
                                     SendXml(NavUrl, orderData);
                                     var listOfUsers = GetAdditionalUsersFor(workplace, logger);
-                                    foreach (var actualUserId in listOfUsers) {
+                                    foreach (var actualUserLogin in listOfUsers) {
                                         var userData = "xml=" +
                                                        "<ZAPSIoperations>" +
                                                        "<ZAPSIoperation>" +
@@ -250,7 +250,7 @@ namespace zapsi_service_likov_terminal_special {
                                                        "<orderno>" + orderNo + "</orderno>" +
                                                        "<operationno>" + operationNo + "</operationno>" +
                                                        "<workcenter>" + workplace.Code + "</workcenter>" +
-                                                       "<machinecenter>" + userLogin + "</machinecenter>" +
+                                                       "<machinecenter>" + actualUserLogin + "</machinecenter>" +
                                                        "<operationtype>Production</operationtype>" +
                                                        "<initiator>True</initiator>" +
                                                        "<startdate>" + time + ".000</startdate>" +
@@ -332,12 +332,12 @@ namespace zapsi_service_likov_terminal_special {
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
                 connection.Open();
-                var selectQuery = $"SELECT * FROM zapsi2.terminal_input_order_user where TerminalInputOrderID = (SELECT OID from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid})";
+                var selectQuery = $"select * from User where OID in (SELECT UserId FROM zapsi2.terminal_input_order_user where TerminalInputOrderID = (SELECT OID from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid}))";
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
                     while (reader.Read()) {
-                        var userId = Convert.ToInt32(reader["UserID"]);
+                        var userId = Convert.ToInt32(reader["Login"]);
                         listOfUsers.Add(userId);
                     }
 
@@ -471,7 +471,7 @@ namespace zapsi_service_likov_terminal_special {
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
                 connection.Open();
-                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid}";
+                var selectQuery = $"select * from User where OID in (SELECT UserId from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid})";
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
