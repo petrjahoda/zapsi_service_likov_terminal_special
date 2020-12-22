@@ -195,7 +195,7 @@ namespace zapsi_service_likov_terminal_special {
                                                    "<machinecenter>" + actualUserLogin + "</machinecenter>" +
                                                    "<operationtype>Production</operationtype>" +
                                                    "<initiator>True</initiator>" +
-                                                   "<startdate>"+ time + ".000</startdate>" +
+                                                   "<startdate>" + time + ".000</startdate>" +
                                                    "<enddate/>" +
                                                    "<consofmeters/>" +
                                                    "<motorhours/>" +
@@ -221,7 +221,7 @@ namespace zapsi_service_likov_terminal_special {
                                     var consOfMeters = GetConsOfMetersFor(workplace, logger);
                                     var motorHours = GetMotorHoursFor(workplace, logger);
                                     var cuts = GetCutsFor(workplace, logger);
-                                    var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); 
+                                    var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                                     var orderData = "xml=" +
                                                     "<ZAPSIoperations>" +
                                                     "<ZAPSIoperation>" +
@@ -285,8 +285,8 @@ namespace zapsi_service_likov_terminal_special {
                             if (response.StatusCode == HttpStatusCode.OK) {
                                 LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML sent OK", logger);
                                 return true;
-
                             }
+
                             LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
                             return false;
                         } catch {
@@ -297,18 +297,23 @@ namespace zapsi_service_likov_terminal_special {
 
                     LogDeviceInfo($"[ {workplace.Name} ] --INF-- Close open orders: " + closeOpenOrders, logger);
                     if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && closeOpenOrders) {
+                        LogDeviceInfo($"[ {workplace.Name} ] --INF-- Checking for open order before those 15 minutes", logger);
                         if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
+                            LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order found, closing order", logger);
                             workplace.CloseOrderForWorkplaceBeforeFifteenMinutes(DateTime.Now, true, logger);
                         } else {
+                            LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order not found, closing login", logger);
                             workplace.CloseLoginForWorkplace(DateTime.Now, logger);
                         }
 
                         closeOpenOrders = false;
                     } else if (!workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && !closeOpenOrders) {
+                        LogDeviceInfo($"[ {workplace.Name} ] --INF-- Checking for open order before those 15 minutes", logger);
                         closeOpenOrders = true;
                     }
 
                     var sleepTime = Convert.ToDouble(_downloadEvery);
+                    LogDeviceInfo($"[ {workplace.Name} ] --INF-- Wait time is: " + (sleepTime - timer.ElapsedMilliseconds), logger);
                     var waitTime = sleepTime - timer.ElapsedMilliseconds;
                     if ((waitTime) > 0) {
                         LogDeviceInfo($"[ {workplace.Name} ] --INF-- Sleeping for {waitTime} ms", logger);
@@ -332,7 +337,8 @@ namespace zapsi_service_likov_terminal_special {
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
                 connection.Open();
-                var selectQuery = $"select * from User where OID in (SELECT UserId FROM zapsi2.terminal_input_order_user where TerminalInputOrderID = (SELECT OID from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid}))";
+                var selectQuery =
+                    $"select * from User where OID in (SELECT UserId FROM zapsi2.terminal_input_order_user where TerminalInputOrderID = (SELECT OID from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid}))";
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
