@@ -160,49 +160,13 @@ namespace zapsi_service_likov_terminal_special {
                                 var actualOrderId = GetOrderIdFor(workplace, logger);
                                 var orderNo = GetOrderNo(workplace, actualOrderId, logger);
                                 var operationNo = GetOperationNo(workplace, actualOrderId, logger);
-                                var consOfMeters = GetConsOfMetersFor(workplace, logger);
-                                var motorHours = GetMotorHoursFor(workplace, logger);
-                                var cuts = GetCutsFor(workplace, logger);
                                 var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                var orderData = "xml=" +
-                                                "<ZAPSIoperations>" +
-                                                "<ZAPSIoperation>" +
-                                                "<type>AL</type>" +
-                                                "<orderno>" + orderNo + "</orderno>" +
-                                                "<operationno>" + operationNo + "</operationno>" +
-                                                "<workcenter>" + workplace.Code + "</workcenter>" +
-                                                "<machinecenter>" + userLogin + "</machinecenter>" +
-                                                "<operationtype>Technology</operationtype>" +
-                                                "<initiator>True</initiator>" +
-                                                "<startdate>" + time + ".000</startdate>" +
-                                                "<enddate/>" +
-                                                "<consofmeters>" + consOfMeters + "</consofmeters>" +
-                                                "<motorhours>" + motorHours + "</motorhours>" +
-                                                "<cuts>" + cuts + "</cuts>" +
-                                                "<note/>" +
-                                                "</ZAPSIoperation>" +
-                                                "</ZAPSIoperations>";
+                                var divisionName = "AL";
+                                var orderData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Production", "true");
                                 SendXml(NavUrl, orderData);
                                 var listOfUsers = GetAdditionalUsersFor(workplace, logger);
                                 foreach (var actualUserLogin in listOfUsers) {
-                                    var userData = "xml=" +
-                                                   "<ZAPSIoperations>" +
-                                                   "<ZAPSIoperation>" +
-                                                   "<type>AL</type>" +
-                                                   "<orderno>" + orderNo + "</orderno>" +
-                                                   "<operationno>" + operationNo + "</operationno>" +
-                                                   "<workcenter>" + workplace.Code + "</workcenter>" +
-                                                   "<machinecenter>" + actualUserLogin + "</machinecenter>" +
-                                                   "<operationtype>Production</operationtype>" +
-                                                   "<initiator>True</initiator>" +
-                                                   "<startdate>" + time + ".000</startdate>" +
-                                                   "<enddate/>" +
-                                                   "<consofmeters/>" +
-                                                   "<motorhours/>" +
-                                                   "<cuts/>" +
-                                                   "<note/>" +
-                                                   "</ZAPSIoperation>" +
-                                                   "</ZAPSIoperations>";
+                                    var userData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "Production", "false");
                                     SendXml(NavUrl, userData);
                                 }
 
@@ -218,49 +182,13 @@ namespace zapsi_service_likov_terminal_special {
                                     var userLogin = GetUserLoginFor(workplace, logger);
                                     var orderNo = GetOrderNo(workplace, actualOrderId, logger);
                                     var operationNo = GetOperationNo(workplace, actualOrderId, logger);
-                                    var consOfMeters = GetConsOfMetersFor(workplace, logger);
-                                    var motorHours = GetMotorHoursFor(workplace, logger);
-                                    var cuts = GetCutsFor(workplace, logger);
                                     var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                    var orderData = "xml=" +
-                                                    "<ZAPSIoperations>" +
-                                                    "<ZAPSIoperation>" +
-                                                    "<type>AL</type>" +
-                                                    "<orderno>" + orderNo + "</orderno>" +
-                                                    "<operationno>" + operationNo + "</operationno>" +
-                                                    "<workcenter>" + workplace.Code + "</workcenter>" +
-                                                    "<machinecenter>" + userLogin + "</machinecenter>" +
-                                                    "<operationtype>Technology</operationtype>" +
-                                                    "<initiator>True</initiator>" +
-                                                    "<startdate>" + time + ".000</startdate>" +
-                                                    "<enddate/>" +
-                                                    "<consofmeters>" + consOfMeters + "</consofmeters>" +
-                                                    "<motorhours>" + motorHours + "</motorhours>" +
-                                                    "<cuts>" + cuts + "</cuts>" +
-                                                    "<note/>" +
-                                                    "</ZAPSIoperation>" +
-                                                    "</ZAPSIoperations>";
+                                    var divisionName = "PL";
+                                    var orderData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Production", "true");
                                     SendXml(NavUrl, orderData);
                                     var listOfUsers = GetAdditionalUsersFor(workplace, logger);
                                     foreach (var actualUserLogin in listOfUsers) {
-                                        var userData = "xml=" +
-                                                       "<ZAPSIoperations>" +
-                                                       "<ZAPSIoperation>" +
-                                                       "<type>AL</type>" +
-                                                       "<orderno>" + orderNo + "</orderno>" +
-                                                       "<operationno>" + operationNo + "</operationno>" +
-                                                       "<workcenter>" + workplace.Code + "</workcenter>" +
-                                                       "<machinecenter>" + actualUserLogin + "</machinecenter>" +
-                                                       "<operationtype>Production</operationtype>" +
-                                                       "<initiator>True</initiator>" +
-                                                       "<startdate>" + time + ".000</startdate>" +
-                                                       "<enddate/>" +
-                                                       "<consofmeters/>" +
-                                                       "<motorhours/>" +
-                                                       "<cuts/>" +
-                                                       "<note/>" +
-                                                       "</ZAPSIoperation>" +
-                                                       "</ZAPSIoperations>";
+                                        var userData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "Production", "false");
                                         SendXml(NavUrl, userData);
                                     }
 
@@ -331,8 +259,30 @@ namespace zapsi_service_likov_terminal_special {
             }
         }
 
-        private static List<int> GetAdditionalUsersFor(Workplace workplace, ILogger logger) {
-            var listOfUsers = new List<int>();
+        private static string CreateXml(Workplace workplace, string divisionName, string orderNo, string operationNo, string userLogin, string time, string operationType, string initiator) {
+            var data = "xml=" +
+                       "<ZAPSIoperations>" +
+                       "<ZAPSIoperation>" +
+                       "<type>" + divisionName + "</type>" +
+                       "<orderno>" + orderNo + "</orderno>" +
+                       "<operationno>" + operationNo + "</operationno>" +
+                       "<workcenter>" + workplace.Code + "</workcenter>" +
+                       "<machinecenter>" + userLogin + "</machinecenter>" +
+                       "<operationtype>" + operationType + "</operationtype>" +
+                       "<initiator>" + initiator + "</initiator>" +
+                       "<startdate>" + time + ".000</startdate>" +
+                       "<enddate/>" +
+                       "<consofmeters/>" +
+                       "<motorhours/>" +
+                       "<cuts/>" +
+                       "<note/>" +
+                       "</ZAPSIoperation>" +
+                       "</ZAPSIoperations>";
+            return data;
+        }
+
+        private static List<string> GetAdditionalUsersFor(Workplace workplace, ILogger logger) {
+            var listOfUsers = new List<string>();
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
@@ -343,7 +293,7 @@ namespace zapsi_service_likov_terminal_special {
                 try {
                     var reader = command.ExecuteReader();
                     while (reader.Read()) {
-                        var userId = Convert.ToInt32(reader["Login"]);
+                        var userId = Convert.ToString(reader["Login"]);
                         listOfUsers.Add(userId);
                     }
 
