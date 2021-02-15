@@ -18,7 +18,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2020.4.2.11";
+        private const string BuildDate = "2021.1.2.15";
         private const string NavUrl = "http://localhost:8000/send";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
@@ -163,11 +163,11 @@ namespace zapsi_service_likov_terminal_special {
                                 var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                                 var divisionName = "AL";
                                 var orderData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Production", "true");
-                                SendXml(NavUrl, orderData);
+                                workplace.SendXml(NavUrl, orderData, logger);
                                 var listOfUsers = GetAdditionalUsersFor(workplace, logger);
                                 foreach (var actualUserLogin in listOfUsers) {
                                     var userData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "Production", "false");
-                                    SendXml(NavUrl, userData);
+                                    workplace.SendXml(NavUrl, userData, logger);
                                 }
 
                                 workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
@@ -185,11 +185,11 @@ namespace zapsi_service_likov_terminal_special {
                                     var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                                     var divisionName = "PL";
                                     var orderData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Production", "true");
-                                    SendXml(NavUrl, orderData);
+                                    workplace.SendXml(NavUrl, orderData, logger);
                                     var listOfUsers = GetAdditionalUsersFor(workplace, logger);
                                     foreach (var actualUserLogin in listOfUsers) {
                                         var userData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "Production", "false");
-                                        SendXml(NavUrl, userData);
+                                        workplace.SendXml(NavUrl, userData, logger);
                                     }
 
                                     workplace.CloseAndStartOrderForWorkplaceAt(DateTime.Now, logger);
@@ -198,30 +198,30 @@ namespace zapsi_service_likov_terminal_special {
                         }
                     }
 
-                    bool SendXml(string destinationUrl, string requestXml) {
-                        LogDeviceInfo($"[ {workplace.Name} ] --INF-- Sending XML", logger);
-                        HttpWebRequest request = (HttpWebRequest) WebRequest.Create(destinationUrl);
-                        byte[] bytes = Encoding.UTF8.GetBytes(requestXml);
-                        request.ContentType = "application/x-www-form-urlencoded";
-                        request.ContentLength = bytes.Length;
-                        request.Method = "POST";
-                        try {
-                            Stream requestStream = request.GetRequestStream();
-                            requestStream.Write(bytes, 0, bytes.Length);
-                            HttpWebResponse response;
-                            response = (HttpWebResponse) request.GetResponse();
-                            if (response.StatusCode == HttpStatusCode.OK) {
-                                LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML sent OK", logger);
-                                return true;
-                            }
-
-                            LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
-                            return false;
-                        } catch {
-                            LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
-                            return false;
-                        }
-                    }
+                    // bool SendXml(string destinationUrl, string requestXml) {
+                    //     LogDeviceInfo($"[ {workplace.Name} ] --INF-- Sending XML", logger);
+                    //     HttpWebRequest request = (HttpWebRequest) WebRequest.Create(destinationUrl);
+                    //     byte[] bytes = Encoding.UTF8.GetBytes(requestXml);
+                    //     request.ContentType = "application/x-www-form-urlencoded";
+                    //     request.ContentLength = bytes.Length;
+                    //     request.Method = "POST";
+                    //     try {
+                    //         Stream requestStream = request.GetRequestStream();
+                    //         requestStream.Write(bytes, 0, bytes.Length);
+                    //         HttpWebResponse response;
+                    //         response = (HttpWebResponse) request.GetResponse();
+                    //         if (response.StatusCode == HttpStatusCode.OK) {
+                    //             LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML sent OK", logger);
+                    //             return true;
+                    //         }
+                    //
+                    //         LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
+                    //         return false;
+                    //     } catch {
+                    //         LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
+                    //         return false;
+                    //     }
+                    // }
 
                     LogDeviceInfo($"[ {workplace.Name} ] --INF-- Close open orders: " + closeOpenOrders, logger);
                     if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && closeOpenOrders) {

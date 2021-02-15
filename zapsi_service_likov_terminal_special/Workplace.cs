@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Net;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using MySql.Data.MySqlClient;
 using static System.Console;
@@ -971,6 +974,28 @@ namespace zapsi_service_likov_terminal_special {
                 LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
             } finally {
                 connection.Dispose();
+            }
+        }
+
+        public void SendXml(string destinationUrl, string requestXml, ILogger logger) {
+            LogInfo($"[ {Name} ] --INF-- Sending XML", logger);
+            HttpWebRequest request = (HttpWebRequest) WebRequest.Create(destinationUrl);
+            byte[] bytes = Encoding.UTF8.GetBytes(requestXml);
+            request.ContentType = "application/x-www-form-urlencoded";
+            request.ContentLength = bytes.Length;
+            request.Method = "POST";
+            try {
+                Stream requestStream = request.GetRequestStream();
+                requestStream.Write(bytes, 0, bytes.Length);
+                HttpWebResponse response;
+                response = (HttpWebResponse) request.GetResponse();
+                if (response.StatusCode == HttpStatusCode.OK) {
+                    LogInfo($"[ {Name} ] --INF-- XML sent OK", logger);
+                }
+            
+                LogInfo($"[ {Name} ] --INF-- XML not sent!!!", logger);
+            } catch {
+                LogInfo($"[ {Name} ] --INF-- XML not sent!!!", logger);
             }
         }
     }
