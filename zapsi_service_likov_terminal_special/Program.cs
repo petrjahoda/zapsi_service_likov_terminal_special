@@ -202,9 +202,7 @@ namespace zapsi_service_likov_terminal_special {
                         LogDeviceInfo($"[ {workplace.Name} ] --INF-- Checking for open order before those 15 minutes", logger);
                         if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
                             LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order found, closing order", logger);
-                            workplace.CloseOrderForWorkplaceBeforeFifteenMinutes(DateTime.Now, true, logger);
-
-
+                            
                             var userLogin = GetUserLoginFor(workplace, logger);
                             var actualOrderId = GetOrderIdFor(workplace, logger);
                             var orderNo = GetOrderNo(workplace, actualOrderId, logger);
@@ -234,6 +232,7 @@ namespace zapsi_service_likov_terminal_special {
                             // posila se za xml FINISH za hlavniho uzivatele
                             userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Finish", "true");
                             workplace.SendXml(NavUrl, userData, logger);
+                            workplace.CloseOrderForWorkplaceBeforeFifteenMinutes(DateTime.Now, true, logger);
                         } else {
                             LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order not found, closing login", logger);
                             workplace.CloseLoginForWorkplace(DateTime.Now, logger);
