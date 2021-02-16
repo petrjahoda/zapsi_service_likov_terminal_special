@@ -7,7 +7,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -18,7 +17,7 @@ using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
     class Program {
-        private const string BuildDate = "2021.1.2.15";
+        private const string BuildDate = "2021.1.2.16";
         private const string NavUrl = "http://localhost:8000/send";
         private const string DataFolder = "Logs";
         private const double InitialDownloadValue = 1000;
@@ -198,37 +197,43 @@ namespace zapsi_service_likov_terminal_special {
                         }
                     }
 
-                    // bool SendXml(string destinationUrl, string requestXml) {
-                    //     LogDeviceInfo($"[ {workplace.Name} ] --INF-- Sending XML", logger);
-                    //     HttpWebRequest request = (HttpWebRequest) WebRequest.Create(destinationUrl);
-                    //     byte[] bytes = Encoding.UTF8.GetBytes(requestXml);
-                    //     request.ContentType = "application/x-www-form-urlencoded";
-                    //     request.ContentLength = bytes.Length;
-                    //     request.Method = "POST";
-                    //     try {
-                    //         Stream requestStream = request.GetRequestStream();
-                    //         requestStream.Write(bytes, 0, bytes.Length);
-                    //         HttpWebResponse response;
-                    //         response = (HttpWebResponse) request.GetResponse();
-                    //         if (response.StatusCode == HttpStatusCode.OK) {
-                    //             LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML sent OK", logger);
-                    //             return true;
-                    //         }
-                    //
-                    //         LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
-                    //         return false;
-                    //     } catch {
-                    //         LogDeviceInfo($"[ {workplace.Name} ] --INF-- XML not sent!!!", logger);
-                    //         return false;
-                    //     }
-                    // }
-
                     LogDeviceInfo($"[ {workplace.Name} ] --INF-- Close open orders: " + closeOpenOrders, logger);
                     if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && closeOpenOrders) {
                         LogDeviceInfo($"[ {workplace.Name} ] --INF-- Checking for open order before those 15 minutes", logger);
                         if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
                             LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order found, closing order", logger);
                             workplace.CloseOrderForWorkplaceBeforeFifteenMinutes(DateTime.Now, true, logger);
+
+
+                            var userLogin = GetUserLoginFor(workplace, logger);
+                            var actualOrderId = GetOrderIdFor(workplace, logger);
+                            var orderNo = GetOrderNo(workplace, actualOrderId, logger);
+                            var operationNo = GetOperationNo(workplace, actualOrderId, logger);
+                            var divisionName = "AL";
+                            if (workplace.WorkplaceDivisionId == 3) {
+                                divisionName = "AL";
+                            }
+                            var consOfMeters = GetConsOfMetersFor(workplace, logger);
+                            var motorHours = GetMotorHoursFor(workplace, logger);
+                            var cuts = GetCutsFor(workplace, logger);
+                            var orderStartTime = GetOrderStartTime(workplace, actualOrderId, logger);
+                            var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                            // posila se xml TECHNOLOGY za hlavniho uzivatele
+                            var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
+                            workplace.SendXml(NavUrl, orderData, logger);
+                            // posila se za xml ENDWORK za hlavniho uzivatele
+                            var userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "EndWork", "true");
+                            workplace.SendXml(NavUrl, userData, logger);
+                            var listOfUsers = GetAdditionalUsersFor(workplace, logger);
+                            
+                            foreach (var actualUserLogin in listOfUsers) {
+                                // posila se za xml ENDWORK za vedlejsi uzivatele
+                                var additionalUserData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "EndWork", "false");
+                                workplace.SendXml(NavUrl, additionalUserData, logger);
+                            }
+                            // posila se za xml FINISH za hlavniho uzivatele
+                            userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Finish", "true");
+                            workplace.SendXml(NavUrl, userData, logger);
                         } else {
                             LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order not found, closing login", logger);
                             workplace.CloseLoginForWorkplace(DateTime.Now, logger);
@@ -259,6 +264,38 @@ namespace zapsi_service_likov_terminal_special {
             }
         }
 
+        private static string GetOrderStartTime(Workplace workplace, int actualOrderId, ILogger logger) {
+            var orderId = DateTime.Now;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where OID={actualOrderId}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        orderId = Convert.ToDateTime(reader["DTS"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + workplace.Name + " ] --ERR-- Problem checking DTS active order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + workplace.Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            return orderId.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+
         private static string CreateXml(Workplace workplace, string divisionName, string orderNo, string operationNo, string userLogin, string time, string operationType, string initiator) {
             var data = "xml=" +
                        "<ZAPSIoperations>" +
@@ -275,6 +312,29 @@ namespace zapsi_service_likov_terminal_special {
                        "<consofmeters/>" +
                        "<motorhours/>" +
                        "<cuts/>" +
+                       "<note/>" +
+                       "</ZAPSIoperation>" +
+                       "</ZAPSIoperations>";
+            return data;
+        }
+
+        private static string CreateXmlTechnology(Workplace workplace, string divisionName, string orderNo, string operationNo, string userLogin, string startDate, string endDate, string operationType,
+            string initiator, string consOfMeters, string motorHours, string cuts) {
+            var data = "xml=" +
+                       "<ZAPSIoperations>" +
+                       "<ZAPSIoperation>" +
+                       "<type>" + divisionName + "</type>" +
+                       "<orderno>" + orderNo + "</orderno>" +
+                       "<operationno>" + operationNo + "</operationno>" +
+                       "<workcenter>" + workplace.Code + "</workcenter>" +
+                       "<machinecenter>" + userLogin + "</machinecenter>" +
+                       "<operationtype>" + operationType + "</operationtype>" +
+                       "<initiator>" + initiator + "</initiator>" +
+                       "<startdate>" + startDate + ".000</startdate>" +
+                       "<enddate>" + endDate + ".000</enddate>" +
+                       "<consofmeters>" + consOfMeters + "</consofmeters>" +
+                       "<motorhours>" + motorHours + "</motorhours>" +
+                       "<cuts>" + cuts + "</cuts>" +
                        "<note/>" +
                        "</ZAPSIoperation>" +
                        "</ZAPSIoperations>";
