@@ -785,6 +785,7 @@ namespace zapsi_service_likov_terminal_special {
 
         public bool HasOpenOrderWithStartBeforeThoseFifteenMinutes(ILogger logger) {
             var thereIsOpenOrder = false;
+            var openOrderId = 0;
             var workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = false;
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
@@ -795,6 +796,7 @@ namespace zapsi_service_likov_terminal_special {
                 try {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
+                        openOrderId = Convert.ToInt32(reader["OID"]);
                         OrderStartDate = Convert.ToDateTime(reader["DTS"]);
                         thereIsOpenOrder = true;
                     }
@@ -815,10 +817,10 @@ namespace zapsi_service_likov_terminal_special {
             }
 
             if (thereIsOpenOrder && (DateTime.Now - OrderStartDate).TotalMinutes > 15) {
-                LogInfo($"[ {Name} ] --INF-- Order started before 15 minutes shift end interval", logger);
+                LogInfo($"[ {Name} ] --INF-- Order started before 15 minutes shift end interval, id: " + openOrderId, logger);
                 workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = true;
             } else {
-                LogInfo($"[ {Name} ] --INF-- Order starts in interval 15 minutes before shifts end", logger);
+                LogInfo($"[ {Name} ] --INF-- Order starts in interval 15 minutes before shifts end, id: " + openOrderId, logger);
             }
 
             return workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd;
@@ -991,6 +993,7 @@ namespace zapsi_service_likov_terminal_special {
                 response = (HttpWebResponse) request.GetResponse();
                 if (response.StatusCode == HttpStatusCode.OK) {
                     LogInfo($"[ {Name} ] --INF-- XML sent OK", logger);
+                    return;
                 }
             
                 LogInfo($"[ {Name} ] --INF-- XML not sent!!!", logger);

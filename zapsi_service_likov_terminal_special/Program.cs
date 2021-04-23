@@ -202,19 +202,18 @@ namespace zapsi_service_likov_terminal_special {
                         LogDeviceInfo($"[ {workplace.Name} ] --INF-- Checking for open order before those 15 minutes", logger);
                         if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
                             LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order found, closing order", logger);
-                            
                             var userLogin = GetUserLoginFor(workplace, logger);
                             var actualOrderId = GetOrderIdFor(workplace, logger);
                             var orderNo = GetOrderNo(workplace, actualOrderId, logger);
                             var operationNo = GetOperationNo(workplace, actualOrderId, logger);
                             var divisionName = "AL";
                             if (workplace.WorkplaceDivisionId == 3) {
-                                divisionName = "AL";
+                                divisionName = "PL";
                             }
                             var consOfMeters = GetConsOfMetersFor(workplace, logger);
                             var motorHours = GetMotorHoursFor(workplace, logger);
                             var cuts = GetCutsFor(workplace, logger);
-                            var orderStartTime = GetOrderStartTime(workplace, actualOrderId, logger);
+                            var orderStartTime = GetOrderStartTime(workplace, logger);
                             var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                             // posila se xml TECHNOLOGY za hlavniho uzivatele
                             var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
@@ -263,13 +262,13 @@ namespace zapsi_service_likov_terminal_special {
             }
         }
 
-        private static string GetOrderStartTime(Workplace workplace, int actualOrderId, ILogger logger) {
+        private static string GetOrderStartTime(Workplace workplace, ILogger logger) {
             var orderId = DateTime.Now;
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
                 connection.Open();
-                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where OID={actualOrderId}";
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid}";
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
@@ -291,7 +290,7 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
-
+            LogInfo("[ " + workplace.Name + " ] --INF-- Open order has start at : " + orderId.ToString("yyyy-MM-dd HH:mm:ss"), logger);
             return orderId.ToString("yyyy-MM-dd HH:mm:ss");
         }
 
@@ -482,6 +481,7 @@ namespace zapsi_service_likov_terminal_special {
 
         private static string GetUserLoginFor(Workplace workplace, ILogger logger) {
             var userLogin = "";
+            var userId = 1;
             var connection = new MySqlConnection(
                 $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
             try {
@@ -492,6 +492,7 @@ namespace zapsi_service_likov_terminal_special {
                     var reader = command.ExecuteReader();
                     if (reader.Read()) {
                         userLogin = Convert.ToString(reader["Login"]);
+                        userId = Convert.ToInt32(reader["OID"]);
                     }
 
                     reader.Close();
@@ -509,7 +510,7 @@ namespace zapsi_service_likov_terminal_special {
                 connection.Dispose();
             }
 
-            LogInfo("[ " + workplace.Name + " ] --INF-- Open order has userId: " + userLogin, logger);
+            LogInfo("[ " + workplace.Name + " ] --INF-- Open order has userId: " + userId, logger);
 
             return userLogin;
         }
