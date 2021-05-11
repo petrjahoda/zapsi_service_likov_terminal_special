@@ -12,6 +12,8 @@ namespace zapsi_service_likov_terminal_special {
         public string DatabaseType { get; set; }
         public string CloseOnlyAutomaticIdles { get; set; }
         public string AddCyclesToOrder { get; set; }
+        public string StartLogoutInterval { get; set; }
+        public string EndLogoutInterval { get; set; }
         public string SmtpClient { get; set; }
         public string SmtpUsername { get; set; }
         public string SmtpPassword { get; set; }
@@ -34,6 +36,8 @@ namespace zapsi_service_likov_terminal_special {
             SmtpUsername = "support@zapsi.eu";
             SmtpPassword = "Zps05.....";
             AddCyclesToOrder = "0";
+            StartLogoutInterval = "0";
+            EndLogoutInterval = "900";
         }
 
     }

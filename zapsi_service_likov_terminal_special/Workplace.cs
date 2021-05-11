@@ -30,6 +30,7 @@ namespace zapsi_service_likov_terminal_special {
         public int CountPortOid { get; set; }
         public int NokPortOid { get; set; }
         public DateTime OrderStartDate { get; set; }
+        public DateTime LoginStartDate { get; set; }
         public int? OrderUserId { get; set; }
         public StateType ActualStateType { get; set; }
         public int WorkplaceIdleId { get; set; }
@@ -47,6 +48,7 @@ namespace zapsi_service_likov_terminal_special {
             ProductionPortOid = ProductionPortOid;
             CountPortOid = CountPortOid;
             OrderStartDate = OrderStartDate;
+            LoginStartDate = LoginStartDate;
             ActualStateType = ActualStateType;
         }
 
@@ -735,25 +737,44 @@ namespace zapsi_service_likov_terminal_special {
         }
 
 
-        public bool TimeIsFifteenMinutesBeforeShiftCloses(ILogger logger) {
-            var timeIsFifteenMinutesBeforeShiftCloses = false;
+        public bool ActualTimeIsInClosingIntervalWithOpenOrder(ILogger logger) {
+            var actualTimeIsInIntervalWithOpenOrder = false;
             var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            var shiftStartsAtDateTime = DateTime.Now;
             var shiftEndsAt = DateTime.Now;
+            var shiftLength = 0;
+            var openOrderId = 0;
+            var thereIsOpenOrder = false;
             try {
                 connection.Open();
-                var selectQuery = $"SELECT * from zapsi2.workshift where OID = {ActualWorkshiftId}";
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DTE is NULL and DeviceID={DeviceOid}";
                 var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        OrderStartDate = Convert.ToDateTime(reader["DTS"]);
+                        thereIsOpenOrder = true;
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+                
+                selectQuery = $"SELECT * from zapsi2.workshift where OID = {ActualWorkshiftId}";
+                command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
                     while (reader.Read()) {
                         var shiftStartsAt = reader["WorkshiftStart"].ToString();
-                        var shiftLength = Convert.ToInt32(reader["WorkshiftLenght"].ToString());
-                        var shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", CultureInfo.CurrentCulture);
+                        shiftLength = Convert.ToInt32(reader["WorkshiftLenght"].ToString());
+                        shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", CultureInfo.CurrentCulture);
                         if (Program.TimezoneIsUtc) {
                             shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", CultureInfo.CurrentCulture).ToUniversalTime();
                         }
-
-                        shiftEndsAt = shiftStartsAtDateTime.AddMinutes(shiftLength);
                     }
 
                     reader.Close();
@@ -770,20 +791,43 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
-
-            LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftEndsAt.Hour}:{shiftEndsAt.Minute}", logger);
-            LogInfo($"[ {Name} ] --INF-- Actual time: {DateTime.Now.Hour}:{DateTime.Now.Minute}", logger);
-            if (shiftEndsAt.Hour - DateTime.Now.Hour == 1 && DateTime.Now.Minute > 44) {
-                LogInfo($"[ {Name} ] --INF-- It is less the 15 minutes before shifts end", logger);
-                timeIsFifteenMinutesBeforeShiftCloses = true;
-            } else {
-                LogInfo($"[ {Name} ] --INF-- It is more the 15 minutes before shifts end", logger);
+            if (DateTime.Now.Ticks < shiftStartsAtDateTime.Ticks) {
+                shiftStartsAtDateTime = shiftStartsAtDateTime.AddDays(-1);
             }
-
-            return timeIsFifteenMinutesBeforeShiftCloses;
+            shiftEndsAt = shiftStartsAtDateTime.AddMinutes(shiftLength);
+            LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftStartsAtDateTime}:{shiftEndsAt}", logger);
+            LogInfo($"[ {Name} ] --INF-- Actual time: {DateTime.Now}", logger);
+            var startInterval = int.Parse(Program._startLogoutInterval);
+            var endInterval = int.Parse(Program._endLogoutInterval);
+            LogInfo($"[ {Name} ] --INF-- Actual interval: from {startInterval} to {endInterval}", logger);
+            LogInfo($"[ {Name} ] --INF-- Open order: {thereIsOpenOrder}", logger);
+            if (thereIsOpenOrder) {
+                if (startInterval > endInterval) {
+                    LogError($"[ {Name} ] --INF-- Problem with interval", logger);
+                } else if (startInterval<0 && endInterval>0){
+                    if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt && OrderStartDate < shiftEndsAt.AddSeconds(startInterval)) {
+                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt}, from shift end, with Order start at {OrderStartDate}", logger);
+                        actualTimeIsInIntervalWithOpenOrder = true;
+                    } else if (shiftStartsAtDateTime <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) && OrderStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
+                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}", logger);
+                        actualTimeIsInIntervalWithOpenOrder = true;
+                    }
+                } else if (startInterval <=0 && endInterval<=0) {
+                    if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt.AddSeconds(endInterval) && OrderStartDate < shiftEndsAt.AddSeconds(startInterval) ) {
+                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift end, with Order start at {OrderStartDate}", logger);
+                        actualTimeIsInIntervalWithOpenOrder = true;
+                    }
+                } else if (startInterval >=0 && endInterval>=0) {
+                    if (shiftStartsAtDateTime.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) && OrderStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
+                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}", logger);
+                        actualTimeIsInIntervalWithOpenOrder = true;
+                    }
+                }
+            }
+            return actualTimeIsInIntervalWithOpenOrder;
         }
 
-        public bool HasOpenOrderWithStartBeforeThoseFifteenMinutes(ILogger logger) {
+        public bool HasOpenOrderBeforeClosingInterval(ILogger logger) {
             var thereIsOpenOrder = false;
             var openOrderId = 0;
             var workplaceHasOpenOrderWithStartBeforeFifteenMinutesToShiftsEnd = false;
@@ -935,7 +979,7 @@ namespace zapsi_service_likov_terminal_special {
             }
         }
 
-        public void CloseOrderForWorkplaceBeforeFifteenMinutes(DateTime closingDateForOrder, bool closeUserLogin, ILogger logger) {
+        public void CloseOrderForWorkplaceInInterval(DateTime closingDateForOrder, bool closeUserLogin, ILogger logger) {
             var myDate = string.Format("{0:yyyy-MM-dd HH:mm:ss}", LastStateDateTime);
             var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", closingDateForOrder);
             if (LastStateDateTime.CompareTo(closingDateForOrder) > 0) {
@@ -1000,6 +1044,96 @@ namespace zapsi_service_likov_terminal_special {
             } catch {
                 LogInfo($"[ {Name} ] --INF-- XML not sent!!!", logger);
             }
+        }
+
+        public bool ActualTimeIsInClosingIntervalWithOpenLogin(ILogger logger) {
+            var actualTimeIsInIntervalWithOpenLogin = false;
+            var connection = new MySqlConnection($"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            var shiftStartsAtDateTime = DateTime.Now;
+            var shiftEndsAt = DateTime.Now;
+            var shiftLength = 0;
+            var openLoginId = 0;
+            var thereIsOpenLogin = false;
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_login where DTE is NULL and DeviceID={DeviceOid}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        LoginStartDate = Convert.ToDateTime(reader["DTS"]);
+                        thereIsOpenLogin = true;
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem checking active order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+                
+                selectQuery = $"SELECT * from zapsi2.workshift where OID = {ActualWorkshiftId}";
+                command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    while (reader.Read()) {
+                        var shiftStartsAt = reader["WorkshiftStart"].ToString();
+                        shiftLength = Convert.ToInt32(reader["WorkshiftLenght"].ToString());
+                        shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", CultureInfo.CurrentCulture);
+                        if (Program.TimezoneIsUtc) {
+                            shiftStartsAtDateTime = DateTime.ParseExact(shiftStartsAt, "HH:mm:ss", CultureInfo.CurrentCulture).ToUniversalTime();
+                        }
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + Name + " ] --ERR-- Problem getting actual workshift: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+            if (DateTime.Now.Ticks < shiftStartsAtDateTime.Ticks) {
+                shiftStartsAtDateTime = shiftStartsAtDateTime.AddDays(-1);
+            }
+            shiftEndsAt = shiftStartsAtDateTime.AddMinutes(shiftLength);
+            LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftStartsAtDateTime}:{shiftEndsAt}", logger);
+            LogInfo($"[ {Name} ] --INF-- Actual time: {DateTime.Now}", logger);
+            var startInterval = int.Parse(Program._startLogoutInterval);
+            var endInterval = int.Parse(Program._endLogoutInterval);
+            LogInfo($"[ {Name} ] --INF-- Actual interval: from {startInterval} to {endInterval}", logger);
+            LogInfo($"[ {Name} ] --INF-- Open login: {thereIsOpenLogin}", logger);
+            if (thereIsOpenLogin) {
+                if (startInterval > endInterval) {
+                    LogError($"[ {Name} ] --INF-- Problem with interval", logger);
+                } else if (startInterval<0 && endInterval>0){
+                    if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt && LoginStartDate < shiftEndsAt.AddSeconds(startInterval)) {
+                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt}, from shift end, with Login start at {LoginStartDate}", logger);
+                        actualTimeIsInIntervalWithOpenLogin = true;
+                    } else if (shiftStartsAtDateTime <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) && LoginStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
+                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}", logger);
+                        actualTimeIsInIntervalWithOpenLogin = true;
+                    }
+                } else if (startInterval <=0 && endInterval<=0) {
+                    if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt.AddSeconds(endInterval) && LoginStartDate < shiftEndsAt.AddSeconds(startInterval) ) {
+                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift end, with Login start at {LoginStartDate}", logger);
+                        actualTimeIsInIntervalWithOpenLogin = true;
+                    }
+                } else if (startInterval >=0 && endInterval>=0) {
+                    if (shiftStartsAtDateTime.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) && LoginStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
+                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}", logger);
+                        actualTimeIsInIntervalWithOpenLogin = true;
+                    }
+                }
+            }
+            return actualTimeIsInIntervalWithOpenLogin;
         }
     }
 }

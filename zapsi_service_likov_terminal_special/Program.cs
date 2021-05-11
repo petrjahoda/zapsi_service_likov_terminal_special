@@ -43,6 +43,8 @@ namespace zapsi_service_likov_terminal_special {
         private static string _smtpPort;
         private static string _smtpUsername;
         private static string _smtpPassword;
+        internal static string _startLogoutInterval;
+        internal static string _endLogoutInterval;
         internal static string IpAddress;
         internal static string Port;
         internal static string Database;
@@ -57,6 +59,10 @@ namespace zapsi_service_likov_terminal_special {
         public static string AddCyclesToOrder;
 
         static void Main() {
+            WriteLine(DateTime.ParseExact("22:00:00", "HH:mm:ss", CultureInfo.CurrentCulture));
+            WriteLine(DateTime.ParseExact("22:00:00", "HH:mm:ss", CultureInfo.CurrentCulture).AddDays(-1));
+            WriteLine(DateTime.ParseExact("22:00:00", "HH:mm:ss", CultureInfo.CurrentCulture) < DateTime.ParseExact("22:00:00", "HH:mm:ss", CultureInfo.CurrentCulture).AddDays(-1));
+            WriteLine(DateTime.ParseExact("22:00:00", "HH:mm:ss", CultureInfo.CurrentCulture) > DateTime.ParseExact("22:00:00", "HH:mm:ss", CultureInfo.CurrentCulture).AddDays(-1));
             _systemIsActivated = false;
             PrintSoftwareLogo();
             var outputPath = CreateLogFileIfNotExists("0-main.txt");
@@ -123,6 +129,14 @@ namespace zapsi_service_likov_terminal_special {
                         CreateNewConfigRecord("SmtpPassword", logger);
                     }
 
+                    if (!enumerable.Contains("StartLogoutInterval")) {
+                        CreateNewConfigRecord("StartLogoutInterval", logger);
+                    }
+
+                    if (!enumerable.Contains("EndLogoutInterval")) {
+                        CreateNewConfigRecord("EndLogoutInterval", logger);
+                    }
+
                     _swConfigCreated = true;
                 }
             }
@@ -140,7 +154,6 @@ namespace zapsi_service_likov_terminal_special {
 
         private static void RunWorkplace(Workplace workplace) {
             var outputPath = CreateLogFileIfNotExists(workplace.Oid + "-" + workplace.Name + ".txt");
-            var closeOpenOrders = true;
             using (var factory = CreateLogger(outputPath, out var logger)) {
                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Started running", logger);
                 var timer = Stopwatch.StartNew();
@@ -197,50 +210,45 @@ namespace zapsi_service_likov_terminal_special {
                         }
                     }
 
-                    LogDeviceInfo($"[ {workplace.Name} ] --INF-- Close open orders: " + closeOpenOrders, logger);
-                    if (workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && closeOpenOrders) {
-                        LogDeviceInfo($"[ {workplace.Name} ] --INF-- Checking for open order before those 15 minutes", logger);
-                        if (workplace.HasOpenOrderWithStartBeforeThoseFifteenMinutes(logger)) {
-                            LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order found, closing order", logger);
-                            var userLogin = GetUserLoginFor(workplace, logger);
-                            var actualOrderId = GetOrderIdFor(workplace, logger);
-                            var orderNo = GetOrderNo(workplace, actualOrderId, logger);
-                            var operationNo = GetOperationNo(workplace, actualOrderId, logger);
-                            var divisionName = "AL";
-                            if (workplace.WorkplaceDivisionId == 3) {
-                                divisionName = "PL";
-                            }
-                            var consOfMeters = GetConsOfMetersFor(workplace, logger);
-                            var motorHours = GetMotorHoursFor(workplace, logger);
-                            var cuts = GetCutsFor(workplace, logger);
-                            var orderStartTime = GetOrderStartTime(workplace, logger);
-                            var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                            // posila se xml TECHNOLOGY za hlavniho uzivatele
-                            var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
-                            workplace.SendXml(NavUrl, orderData, logger);
-                            // posila se za xml ENDWORK za hlavniho uzivatele
-                            var userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "EndWork", "true");
-                            workplace.SendXml(NavUrl, userData, logger);
-                            var listOfUsers = GetAdditionalUsersFor(workplace, logger);
-                            
-                            foreach (var actualUserLogin in listOfUsers) {
-                                // posila se za xml ENDWORK za vedlejsi uzivatele
-                                var additionalUserData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "EndWork", "false");
-                                workplace.SendXml(NavUrl, additionalUserData, logger);
-                            }
-                            // posila se za xml FINISH za hlavniho uzivatele
-                            userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Finish", "true");
-                            workplace.SendXml(NavUrl, userData, logger);
-                            workplace.CloseOrderForWorkplaceBeforeFifteenMinutes(DateTime.Now, true, logger);
-                        } else {
-                            LogDeviceInfo($"[ {workplace.Name} ] --INF-- Open order not found, closing login", logger);
-                            workplace.CloseLoginForWorkplace(DateTime.Now, logger);
-                        }
+                    if (workplace.ActualTimeIsInClosingIntervalWithOpenOrder(logger)) {
+                        LogDeviceInfo($"[ {workplace.Name} ] --INF-- Closing interval is active, with open order", logger);
+                        // var userLogin = GetUserLoginFor(workplace, logger);
+                        // var actualOrderId = GetOrderIdFor(workplace, logger);
+                        // var orderNo = GetOrderNo(workplace, actualOrderId, logger);
+                        // var operationNo = GetOperationNo(workplace, actualOrderId, logger);
+                        // var divisionName = "AL";
+                        // if (workplace.WorkplaceDivisionId == 3) {
+                        //     divisionName = "PL";
+                        // }
+                        //
+                        // var consOfMeters = GetConsOfMetersFor(workplace, logger);
+                        // var motorHours = GetMotorHoursFor(workplace, logger);
+                        // var cuts = GetCutsFor(workplace, logger);
+                        // var orderStartTime = GetOrderStartTime(workplace, logger);
+                        // var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        // // posila se xml TECHNOLOGY za hlavniho uzivatele
+                        // var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
+                        // workplace.SendXml(NavUrl, orderData, logger);
+                        // // posila se za xml ENDWORK za hlavniho uzivatele
+                        // var userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "EndWork", "true");
+                        // workplace.SendXml(NavUrl, userData, logger);
+                        // var listOfUsers = GetAdditionalUsersFor(workplace, logger);
+                        //
+                        // foreach (var actualUserLogin in listOfUsers) {
+                        //     // posila se za xml ENDWORK za vedlejsi uzivatele
+                        //     var additionalUserData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "EndWork", "false");
+                        //     workplace.SendXml(NavUrl, additionalUserData, logger);
+                        // }
+                        //
+                        // // posila se za xml FINISH za hlavniho uzivatele
+                        // userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Finish", "true");
+                        // workplace.SendXml(NavUrl, userData, logger);
+                        // workplace.CloseOrderForWorkplaceInInterval(DateTime.Now, true, logger);
+                    }
 
-                        closeOpenOrders = false;
-                    } else if (!workplace.TimeIsFifteenMinutesBeforeShiftCloses(logger) && !closeOpenOrders) {
-                        LogDeviceInfo($"[ {workplace.Name} ] --INF-- Checking for open order before those 15 minutes", logger);
-                        closeOpenOrders = true;
+                    if (workplace.ActualTimeIsInClosingIntervalWithOpenLogin(logger)) {
+                        LogDeviceInfo($"[ {workplace.Name} ] --INF-- Closing interval is active, with open login", logger);
+                        // workplace.CloseLoginForWorkplace(DateTime.Now, logger);
                     }
 
                     var sleepTime = Convert.ToDouble(_downloadEvery);
@@ -290,6 +298,7 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             LogInfo("[ " + workplace.Name + " ] --INF-- Open order has start at : " + orderId.ToString("yyyy-MM-dd HH:mm:ss"), logger);
             return orderId.ToString("yyyy-MM-dd HH:mm:ss");
         }
@@ -316,7 +325,8 @@ namespace zapsi_service_likov_terminal_special {
             return data;
         }
 
-        private static string CreateXmlTechnology(Workplace workplace, string divisionName, string orderNo, string operationNo, string userLogin, string startDate, string endDate, string operationType,
+        private static string CreateXmlTechnology(Workplace workplace, string divisionName, string orderNo, string operationNo, string userLogin, string startDate, string endDate,
+            string operationType,
             string initiator, string consOfMeters, string motorHours, string cuts) {
             var data = "xml=" +
                        "<ZAPSIoperations>" +
@@ -735,6 +745,14 @@ namespace zapsi_service_likov_terminal_special {
                 key = _smtpPassword;
             }
 
+            if (option.Equals("StartLogoutInterval")) {
+                key = _startLogoutInterval;
+            }
+
+            if (option.Equals("EndLogoutInterval")) {
+                key = _endLogoutInterval;
+            }
+
 
             var connection = new MySqlConnection($"server={IpAddress};port={Port};userid={Login};password={Password};database={Database};");
             try {
@@ -975,6 +993,8 @@ namespace zapsi_service_likov_terminal_special {
                 _smtpPort = configuration["smtpport"];
                 _smtpUsername = configuration["smtpusername"];
                 _smtpPassword = configuration["smtppassword"];
+                _startLogoutInterval = configuration["startlogoutinterval"];
+                _endLogoutInterval = configuration["endlogoutinterval"];
                 LogInfo("[ MAIN ] --INF-- Config loaded from file for customer: " + _customer, logger);
                 configFileLoaded = true;
             } catch (Exception error) {
