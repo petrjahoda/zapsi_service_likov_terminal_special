@@ -212,43 +212,43 @@ namespace zapsi_service_likov_terminal_special {
 
                     if (workplace.ActualTimeIsInClosingIntervalWithOpenOrder(logger)) {
                         LogDeviceInfo($"[ {workplace.Name} ] --INF-- Closing interval is active, with open order", logger);
-                        // var userLogin = GetUserLoginFor(workplace, logger);
-                        // var actualOrderId = GetOrderIdFor(workplace, logger);
-                        // var orderNo = GetOrderNo(workplace, actualOrderId, logger);
-                        // var operationNo = GetOperationNo(workplace, actualOrderId, logger);
-                        // var divisionName = "AL";
-                        // if (workplace.WorkplaceDivisionId == 3) {
-                        //     divisionName = "PL";
-                        // }
-                        //
-                        // var consOfMeters = GetConsOfMetersFor(workplace, logger);
-                        // var motorHours = GetMotorHoursFor(workplace, logger);
-                        // var cuts = GetCutsFor(workplace, logger);
-                        // var orderStartTime = GetOrderStartTime(workplace, logger);
-                        // var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                        // // posila se xml TECHNOLOGY za hlavniho uzivatele
-                        // var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
-                        // workplace.SendXml(NavUrl, orderData, logger);
-                        // // posila se za xml ENDWORK za hlavniho uzivatele
-                        // var userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "EndWork", "true");
-                        // workplace.SendXml(NavUrl, userData, logger);
-                        // var listOfUsers = GetAdditionalUsersFor(workplace, logger);
-                        //
-                        // foreach (var actualUserLogin in listOfUsers) {
-                        //     // posila se za xml ENDWORK za vedlejsi uzivatele
-                        //     var additionalUserData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "EndWork", "false");
-                        //     workplace.SendXml(NavUrl, additionalUserData, logger);
-                        // }
-                        //
-                        // // posila se za xml FINISH za hlavniho uzivatele
-                        // userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Finish", "true");
-                        // workplace.SendXml(NavUrl, userData, logger);
-                        // workplace.CloseOrderForWorkplaceInInterval(DateTime.Now, true, logger);
+                        var userLogin = GetUserLoginFor(workplace, logger);
+                        var actualOrderId = GetOrderIdFor(workplace, logger);
+                        var orderNo = GetOrderNo(workplace, actualOrderId, logger);
+                        var operationNo = GetOperationNo(workplace, actualOrderId, logger);
+                        var divisionName = "AL";
+                        if (workplace.WorkplaceDivisionId == 3) {
+                            divisionName = "PL";
+                        }
+                        
+                        var consOfMeters = GetConsOfMetersFor(workplace, logger);
+                        var motorHours = GetMotorHoursFor(workplace, logger);
+                        var cuts = GetCutsFor(workplace, logger);
+                        var orderStartTime = GetOrderStartTime(workplace, logger);
+                        var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        // posila se xml TECHNOLOGY za hlavniho uzivatele
+                        var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
+                        workplace.SendXml(NavUrl, orderData, logger);
+                        // posila se za xml ENDWORK za hlavniho uzivatele
+                        var userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "EndWork", "true");
+                        workplace.SendXml(NavUrl, userData, logger);
+                        var listOfUsers = GetAdditionalUsersFor(workplace, logger);
+                        
+                        foreach (var actualUserLogin in listOfUsers) {
+                            // posila se za xml ENDWORK za vedlejsi uzivatele
+                            var additionalUserData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "EndWork", "false");
+                            workplace.SendXml(NavUrl, additionalUserData, logger);
+                        }
+                        
+                        // posila se za xml FINISH za hlavniho uzivatele
+                        userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Finish", "true");
+                        workplace.SendXml(NavUrl, userData, logger);
+                        workplace.CloseOrderForWorkplaceInInterval(DateTime.Now, true, logger);
                     }
 
                     if (workplace.ActualTimeIsInClosingIntervalWithOpenLogin(logger)) {
                         LogDeviceInfo($"[ {workplace.Name} ] --INF-- Closing interval is active, with open login", logger);
-                        // workplace.CloseLoginForWorkplace(DateTime.Now, logger);
+                        workplace.CloseLoginForWorkplace(DateTime.Now, logger);
                     }
 
                     var sleepTime = Convert.ToDouble(_downloadEvery);
