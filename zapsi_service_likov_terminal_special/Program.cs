@@ -392,7 +392,7 @@ namespace zapsi_service_likov_terminal_special {
             try {
                 connection.Open();
                 var selectQuery =
-                    $"SELECT SUM(Data) as result FROM zapsi2.device_input_analog where deviceportid=(SELECT DevicePortID FROM zapsi2.workplace_port where DevicePortId = 111 and WorkplaceID = {workplace.Oid}) and Dt > (SELECT DTS from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid})";
+                    $"SELECT SUM(Data) as result FROM zapsi2.device_input_analog where deviceportid=(SELECT DevicePortID FROM zapsi2.workplace_port where PortNumber = 111 and WorkplaceID = {workplace.Oid}) and Dt > (SELECT DTS from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid})";
                 var command = new MySqlCommand(selectQuery, connection);
                 try {
                     var reader = command.ExecuteReader();
