@@ -226,9 +226,13 @@ namespace zapsi_service_likov_terminal_special {
                         var cuts = GetCutsFor(workplace, logger);
                         var orderStartTime = GetOrderStartTime(workplace, logger);
                         var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                        // posila se xml TECHNOLOGY za hlavniho uzivatele
-                        var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
-                        workplace.SendXml(NavUrl, orderData, logger);
+
+                        var orderWorkplaceMode = GetOrderWorkplaceMode(workplace, logger);
+                        if (orderWorkplaceMode == 1 || orderWorkplaceMode == 2) {
+                            // posila se xml TECHNOLOGY za hlavniho uzivatele
+                            var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
+                            workplace.SendXml(NavUrl, orderData, logger);
+                        }
                         // posila se za xml ENDWORK za hlavniho uzivatele
                         var userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "EndWork", "true");
                         workplace.SendXml(NavUrl, userData, logger);
@@ -268,6 +272,39 @@ namespace zapsi_service_likov_terminal_special {
                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Process ended.", logger);
                 _numberOfRunningWorkplaces--;
             }
+        }
+
+        private static int GetOrderWorkplaceMode(Workplace workplace, ILogger logger) {
+            var workplaceModeId = 1;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_order where DTE is NULL and DeviceID={workplace.DeviceOid}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        workplaceModeId = Convert.ToInt32(reader["WorkplaceModeID"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + workplace.Name + " ] --ERR-- Problem checking workplacemode for order: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + workplace.Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            LogInfo("[ " + workplace.Name + " ] --INF-- Open order has workplacemode: " + workplaceModeId, logger);
+            return workplaceModeId;
         }
 
         private static string GetOrderStartTime(Workplace workplace, ILogger logger) {
