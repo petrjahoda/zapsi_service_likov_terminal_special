@@ -157,7 +157,7 @@ namespace zapsi_service_likov_terminal_special {
             using (var factory = CreateLogger(outputPath, out var logger)) {
                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Started running", logger);
                 var timer = Stopwatch.StartNew();
-                while (_databaseIsOnline && _loopCanRun && _systemIsActivated) {
+                while (_systemIsActivated) {
                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Inside loop started", logger);
                     UpdateWorkplace(workplace, logger);
                     var workplaceMode = workplace.GetWorkplaceMode(logger);
