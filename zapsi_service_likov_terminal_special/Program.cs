@@ -13,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MySql.Data.MySqlClient;
 using Newtonsoft.Json;
+using Org.BouncyCastle.Asn1.Cms;
 using static System.Console;
 
 namespace zapsi_service_likov_terminal_special {
@@ -168,6 +169,7 @@ namespace zapsi_service_likov_terminal_special {
                             LogDeviceInfo("[ " + workplace.Name + " ] --INF-- WorkplaceDivision is 2", logger);
                             if (workplace.IsInProduction(logger)) {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace is in production", logger);
+                                CheckRepair(workplace, logger);
                                 var userLogin = GetUserLoginFor(workplace, logger);
                                 var actualOrderId = GetOrderIdFor(workplace, logger);
                                 var orderNo = GetOrderNo(workplace, actualOrderId, logger);
@@ -190,6 +192,7 @@ namespace zapsi_service_likov_terminal_special {
                                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Is in production for more than 10 minutes", logger);
                                 if (workplace.HasOpenOrderForMoreThanTenMinutes(logger)) {
                                     LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Workplace has open order for more than 10 minutes", logger);
+                                    CheckRepair(workplace, logger);
                                     var actualOrderId = GetOrderIdFor(workplace, logger);
                                     var userLogin = GetUserLoginFor(workplace, logger);
                                     var orderNo = GetOrderNo(workplace, actualOrderId, logger);
@@ -212,6 +215,7 @@ namespace zapsi_service_likov_terminal_special {
 
                     if (workplace.ActualTimeIsInClosingIntervalWithOpenOrder(logger)) {
                         LogDeviceInfo($"[ {workplace.Name} ] --INF-- Closing interval is active, with open order", logger);
+                        CheckRepair(workplace, logger);
                         var userLogin = GetUserLoginFor(workplace, logger);
                         var actualOrderId = GetOrderIdFor(workplace, logger);
                         var orderNo = GetOrderNo(workplace, actualOrderId, logger);
@@ -220,7 +224,7 @@ namespace zapsi_service_likov_terminal_special {
                         if (workplace.WorkplaceDivisionId == 3) {
                             divisionName = "PL";
                         }
-                        
+
                         var consOfMeters = GetConsOfMetersFor(workplace, logger);
                         var motorHours = GetMotorHoursFor(workplace, logger);
                         var cuts = GetCutsFor(workplace, logger);
@@ -233,17 +237,18 @@ namespace zapsi_service_likov_terminal_special {
                             var orderData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, orderStartTime, time, "Technology", "true", consOfMeters, motorHours, cuts);
                             workplace.SendXml(NavUrl, orderData, logger);
                         }
+
                         // posila se za xml ENDWORK za hlavniho uzivatele
                         var userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "EndWork", "true");
                         workplace.SendXml(NavUrl, userData, logger);
                         var listOfUsers = GetAdditionalUsersFor(workplace, logger);
-                        
+
                         foreach (var actualUserLogin in listOfUsers) {
                             // posila se za xml ENDWORK za vedlejsi uzivatele
                             var additionalUserData = CreateXml(workplace, divisionName, orderNo, operationNo, actualUserLogin, time, "EndWork", "false");
                             workplace.SendXml(NavUrl, additionalUserData, logger);
                         }
-                        
+
                         // posila se za xml FINISH za hlavniho uzivatele
                         userData = CreateXml(workplace, divisionName, orderNo, operationNo, userLogin, time, "Finish", "true");
                         workplace.SendXml(NavUrl, userData, logger);
@@ -272,6 +277,232 @@ namespace zapsi_service_likov_terminal_special {
                 LogDeviceInfo("[ " + workplace.Name + " ] --INF-- Process ended.", logger);
                 _numberOfRunningWorkplaces--;
             }
+        }
+
+        private static void CheckRepair(Workplace workplace, ILogger logger) {
+            LogInfo("[ " + workplace.Name + " ] --INF-- Checking repair", logger);
+            var openRepairId = CheckOpenRepair(workplace, logger);
+            if (openRepairId > 0) {
+                LogInfo("[ " + workplace.Name + $" ] --INF-- Found open terminal_input_repair with OID {openRepairId}", logger);
+                var orderWorkplaceMode = GetOrderWorkplaceModeType(workplace, logger);
+                if (orderWorkplaceMode == 1) {
+                    var userLogin = GetUserLoginFor(workplace, logger);
+                    var actualOrderId = GetOrderIdFor(workplace, logger);
+                    var orderNo = GetOrderNo(workplace, actualOrderId, logger);
+                    var operationNo = GetOperationNo(workplace, actualOrderId, logger);
+                    var divisionName = "AL";
+                    if (workplace.WorkplaceDivisionId == 3) {
+                        divisionName = "PL";
+                    }
+                    var consOfMeters = GetRepairConsOfMetersFor(workplace, logger);
+                    var repairMotorHours = GetRepairMotorHoursFor(workplace, logger);
+                    var repairStartTime = GetRepairStartTime(workplace, logger);
+                    var time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    var repairData = CreateXmlTechnology(workplace, divisionName, orderNo, operationNo, userLogin, repairStartTime, time, "Technology", "true", consOfMeters, repairMotorHours, "");
+                    workplace.SendXml(NavUrl, repairData, logger);
+                    CloseRepair(workplace, openRepairId, logger);
+                } else {
+                    CloseRepair(workplace, openRepairId, logger);
+                }
+            } else {
+                LogInfo("[ " + workplace.Name + " ] --INF-- No open terminal_input_repair", logger);
+            }
+        }
+
+        private static string GetRepairConsOfMetersFor(Workplace workplace, ILogger logger) {
+            var consOfMeters = 0;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery =
+                    $"SELECT SUM(Data) as result FROM zapsi2.device_input_analog where deviceportid=(SELECT oid from device_port where PortNumber = 111 and OID IN (SELECT DevicePortID FROM zapsi2.workplace_port where PortNumber = 111 and WorkplaceID = {workplace.Oid})) and Dt > (SELECT DTS from zapsi2.terminal_input_repair where DTE is NULL and DeviceID={workplace.DeviceOid})";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        consOfMeters = Convert.ToInt32(reader["result"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + workplace.Name + " ] --ERR-- Problem checking cons of meters: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + workplace.Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            LogInfo("[ " + workplace.Name + " ] --INF-- Open order cons of meters: " + consOfMeters, logger);
+
+            return consOfMeters.ToString();
+        }
+
+        private static string GetRepairMotorHoursFor(Workplace workplace, ILogger logger) {
+            var motorHours = 0;
+            var start = DateTime.Now;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_repair where DTE is NULL and DeviceID={workplace.DeviceOid}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        start = Convert.ToDateTime(reader["DTS"]);
+                    }
+
+                    var interval = DateTime.Now.Subtract(start).Seconds;
+                    motorHours = interval / 3600;
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + workplace.Name + " ] --ERR-- Problem checking motor hours for repair: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + workplace.Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            LogInfo("[ " + workplace.Name + " ] --INF-- Open repair has interval / 3600: " + motorHours, logger);
+
+            return motorHours.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static string GetRepairStartTime(Workplace workplace, ILogger logger) {
+            var repairStartTime = DateTime.Now;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery = $"SELECT * from zapsi2.terminal_input_repair where DTE is NULL and DeviceID={workplace.DeviceOid}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        repairStartTime = Convert.ToDateTime(reader["DTS"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + workplace.Name + " ] --ERR-- Problem checking DTS active repair: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + workplace.Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            LogInfo("[ " + workplace.Name + " ] --INF-- Open repair has start at : " + repairStartTime.ToString("yyyy-MM-dd HH:mm:ss"), logger);
+            return repairStartTime.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+
+        private static int GetOrderWorkplaceModeType(Workplace workplace, ILogger logger) {
+            var workplaceModeTypeId = 0;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery =
+                    $"SELECT WorkplaceModeTypeID FROM terminal_input_order JOIN workplace_mode ON workplace_mode.OID=terminal_input_order.WorkplaceModeID WHERE DTE IS NULL AND DeviceID={workplace.DeviceOid}";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        workplaceModeTypeId = Convert.ToInt32(reader["WorkplaceModeTypeID"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + workplace.Name + " ] --ERR-- Problem checking workplace mode type id: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + workplace.Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            return workplaceModeTypeId;
+        }
+
+        private static void CloseRepair(Workplace workplace, int openRepairId, ILogger logger) {
+            var dateToInsert = string.Format("{0:yyyy-MM-dd HH:mm:ss}", DateTime.Now);
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var command = connection.CreateCommand();
+                command.CommandText = $"UPDATE `zapsi2`.`terminal_input_repair` t SET t.`DTE` = '{dateToInsert}' WHERE t.`OID`={openRepairId};";
+                LogInfo("[ " + workplace.Name + " ] --INF-- " + command.CommandText, logger);
+                try {
+                    command.ExecuteNonQuery();
+                } catch (Exception error) {
+                    LogError("[ MAIN ] --ERR-- problem closing repair in database: " + error.Message + "\n" + command.CommandText, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + workplace.Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+        }
+
+        private static int CheckOpenRepair(Workplace workplace, ILogger logger) {
+            var openRepairId = 0;
+            var connection = new MySqlConnection(
+                $"server={Program.IpAddress};port={Program.Port};userid={Program.Login};password={Program.Password};database={Program.Database};");
+            try {
+                connection.Open();
+                var selectQuery =
+                    $"SELECT * FROM terminal_input_repair JOIN repair ON repair.OID = terminal_input_repair.RepairID WHERE DeviceID={workplace.DeviceOid} AND DTE IS NULL AND repair.RepairTypeID=2";
+                var command = new MySqlCommand(selectQuery, connection);
+                try {
+                    var reader = command.ExecuteReader();
+                    if (reader.Read()) {
+                        openRepairId = Convert.ToInt32(reader["OID"]);
+                    }
+
+                    reader.Close();
+                    reader.Dispose();
+                } catch (Exception error) {
+                    LogError("[ " + workplace.Name + " ] --ERR-- Problem checking open repair: " + error.Message + selectQuery, logger);
+                } finally {
+                    command.Dispose();
+                }
+
+                connection.Close();
+            } catch (Exception error) {
+                LogError("[ " + workplace.Name + " ] --ERR-- Problem with database: " + error.Message, logger);
+            } finally {
+                connection.Dispose();
+            }
+
+            return openRepairId;
         }
 
         private static int GetOrderWorkplaceMode(Workplace workplace, ILogger logger) {

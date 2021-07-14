@@ -34,7 +34,7 @@ namespace zapsi_service_likov_terminal_special {
         public int? OrderUserId { get; set; }
         public StateType ActualStateType { get; set; }
         public int WorkplaceIdleId { get; set; }
-        public string Code  { get; set; }
+        public string Code { get; set; }
 
         public Workplace() {
             Oid = Oid;
@@ -492,6 +492,7 @@ namespace zapsi_service_likov_terminal_special {
                         command.Dispose();
                     }
                 }
+
                 connection.Close();
             } catch (Exception error) {
                 LogError("[ " + Name + " ] --ERR-- Problem with database: " + error.Message, logger);
@@ -763,7 +764,7 @@ namespace zapsi_service_likov_terminal_special {
                 } finally {
                     command.Dispose();
                 }
-                
+
                 selectQuery = $"SELECT * from zapsi2.workshift where OID = {ActualWorkshiftId}";
                 command = new MySqlCommand(selectQuery, connection);
                 try {
@@ -791,9 +792,11 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             if (DateTime.Now.Ticks < shiftStartsAtDateTime.Ticks) {
                 shiftStartsAtDateTime = shiftStartsAtDateTime.AddDays(-1);
             }
+
             shiftEndsAt = shiftStartsAtDateTime.AddMinutes(shiftLength);
             LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftStartsAtDateTime}:{shiftEndsAt}", logger);
             LogInfo($"[ {Name} ] --INF-- Actual time: {DateTime.Now}", logger);
@@ -804,35 +807,50 @@ namespace zapsi_service_likov_terminal_special {
             if (thereIsOpenOrder) {
                 if (startInterval > endInterval) {
                     LogError($"[ {Name} ] --INF-- Problem with interval", logger);
-                } else if (startInterval<0 && endInterval>0){
+                } else if (startInterval < 0 && endInterval > 0) {
                     LogInfo($"[ {Name} ] --INF-- Interval during shift change", logger);
                     if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt && OrderStartDate < shiftEndsAt.AddSeconds(startInterval)) {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt}, from shift end, with Order start at {OrderStartDate}", logger);
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt}, from shift end, with Order start at {OrderStartDate}",
+                            logger);
                         actualTimeIsInIntervalWithOpenOrder = true;
-                    } else if (shiftStartsAtDateTime <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) && OrderStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}", logger);
+                    } else if (shiftStartsAtDateTime <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) &&
+                               OrderStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}",
+                            logger);
                         actualTimeIsInIntervalWithOpenOrder = true;
                     } else {
                         LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between start and end, with Order start at {LoginStartDate}", logger);
                     }
-                } else if (startInterval <=0 && endInterval<=0) {
+                } else if (startInterval <= 0 && endInterval <= 0) {
                     LogInfo($"[ {Name} ] --INF-- Interval before shift change", logger);
-                    if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt.AddSeconds(endInterval) && OrderStartDate < shiftEndsAt.AddSeconds(startInterval) ) {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift end, with Order start at {OrderStartDate}", logger);
+                    if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt.AddSeconds(endInterval) && OrderStartDate < shiftEndsAt.AddSeconds(startInterval)) {
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift end, with Order start at {OrderStartDate}",
+                            logger);
                         actualTimeIsInIntervalWithOpenOrder = true;
                     } else {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}", logger);
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}",
+                            logger);
                     }
-                } else if (startInterval >=0 && endInterval>=0) {
+                } else if (startInterval >= 0 && endInterval >= 0) {
                     LogInfo($"[ {Name} ] --INF-- Interval after shift change", logger);
-                    if (shiftStartsAtDateTime.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) && OrderStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}", logger);
+                    if (shiftStartsAtDateTime.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) &&
+                        OrderStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}",
+                            logger);
                         actualTimeIsInIntervalWithOpenOrder = true;
                     } else {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}", logger);
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Order start at {OrderStartDate}",
+                            logger);
                     }
                 }
             }
+
             return actualTimeIsInIntervalWithOpenOrder;
         }
 
@@ -1048,7 +1066,7 @@ namespace zapsi_service_likov_terminal_special {
                     LogInfo($"[ {Name} ] --INF-- XML sent OK", logger);
                     return;
                 }
-            
+
                 LogInfo($"[ {Name} ] --INF-- XML not sent!!!", logger);
             } catch {
                 LogInfo($"[ {Name} ] --INF-- XML not sent!!!", logger);
@@ -1081,7 +1099,7 @@ namespace zapsi_service_likov_terminal_special {
                 } finally {
                     command.Dispose();
                 }
-                
+
                 selectQuery = $"SELECT * from zapsi2.workshift where OID = {ActualWorkshiftId}";
                 command = new MySqlCommand(selectQuery, connection);
                 try {
@@ -1109,9 +1127,11 @@ namespace zapsi_service_likov_terminal_special {
             } finally {
                 connection.Dispose();
             }
+
             if (DateTime.Now.Ticks < shiftStartsAtDateTime.Ticks) {
                 shiftStartsAtDateTime = shiftStartsAtDateTime.AddDays(-1);
             }
+
             shiftEndsAt = shiftStartsAtDateTime.AddMinutes(shiftLength);
             LogInfo($"[ {Name} ] --INF-- Workshift time: {shiftStartsAtDateTime}:{shiftEndsAt}", logger);
             LogInfo($"[ {Name} ] --INF-- Actual time: {DateTime.Now}", logger);
@@ -1122,35 +1142,50 @@ namespace zapsi_service_likov_terminal_special {
             if (thereIsOpenLogin) {
                 if (startInterval > endInterval) {
                     LogError($"[ {Name} ] --INF-- Problem with interval", logger);
-                } else if (startInterval<0 && endInterval>0){
+                } else if (startInterval < 0 && endInterval > 0) {
                     LogInfo($"[ {Name} ] --INF-- Interval during shift change", logger);
                     if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt && LoginStartDate < shiftEndsAt.AddSeconds(startInterval)) {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt}, from shift end, with Login start at {LoginStartDate}", logger);
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt}, from shift end, with Login start at {LoginStartDate}",
+                            logger);
                         actualTimeIsInIntervalWithOpenLogin = true;
-                    } else if (shiftStartsAtDateTime <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) && LoginStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}", logger);
+                    } else if (shiftStartsAtDateTime <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) &&
+                               LoginStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}",
+                            logger);
                         actualTimeIsInIntervalWithOpenLogin = true;
                     } else {
                         LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between start and end, with Login start at {LoginStartDate}", logger);
                     }
-                } else if (startInterval <=0 && endInterval<=0) {
+                } else if (startInterval <= 0 && endInterval <= 0) {
                     LogInfo($"[ {Name} ] --INF-- Interval before shift change", logger);
-                    if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt.AddSeconds(endInterval) && LoginStartDate < shiftEndsAt.AddSeconds(startInterval) ) {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift end, with Login start at {LoginStartDate}", logger);
+                    if (shiftEndsAt.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftEndsAt.AddSeconds(endInterval) && LoginStartDate < shiftEndsAt.AddSeconds(startInterval)) {
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift end, with Login start at {LoginStartDate}",
+                            logger);
                         actualTimeIsInIntervalWithOpenLogin = true;
                     } else {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}", logger);
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between {shiftEndsAt.AddSeconds(startInterval)} and {shiftEndsAt.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}",
+                            logger);
                     }
-                } else if (startInterval >=0 && endInterval>=0) {
+                } else if (startInterval >= 0 && endInterval >= 0) {
                     LogInfo($"[ {Name} ] --INF-- Interval after shift change", logger);
-                    if (shiftStartsAtDateTime.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) && LoginStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}", logger);
+                    if (shiftStartsAtDateTime.AddSeconds(startInterval) <= DateTime.Now && DateTime.Now <= shiftStartsAtDateTime.AddSeconds(endInterval) &&
+                        LoginStartDate < shiftStartsAtDateTime.AddSeconds(startInterval)) {
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}",
+                            logger);
                         actualTimeIsInIntervalWithOpenLogin = true;
                     } else {
-                        LogInfo($"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}", logger);
+                        LogInfo(
+                            $"[ {Name} ] --INF-- Time {DateTime.Now} is NOT in interval between {shiftStartsAtDateTime.AddSeconds(startInterval)} and {shiftStartsAtDateTime.AddSeconds(endInterval)}, from shift start, with Login start at {LoginStartDate}",
+                            logger);
                     }
                 }
             }
+
             return actualTimeIsInIntervalWithOpenLogin;
         }
     }
